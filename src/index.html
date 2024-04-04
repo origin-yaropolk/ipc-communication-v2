@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html style="background: var(--color-main-bg)">
+
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="Content-Security-Policy" content="script-src 'unsafe-inline' 'self'">
+	<link rel="stylesheet" href="../index.css">
+	<script>
+		if (global === undefined) {
+			var global = window;
+		}
+
+		window._setTheme = (theme) => {
+			if (!theme) {
+				let savedTheme = localStorage.getItem('theme');
+
+				if (!savedTheme) {
+					return;
+				}
+
+				theme = savedTheme;
+			}
+			else {
+				localStorage.setItem('theme', theme);
+			}
+
+			document.documentElement.setAttribute('theme', theme);
+			document.documentElement.classList.remove(`theme-${ theme === 'dark' ? 'light' : 'dark' }`);
+			document.documentElement.classList.add(`theme-${ theme }`);
+		};
+
+		_setTheme();
+	</script>
+</head>
+
+<body>
+	<div id="root"></div>
+</body>
+
+</html>

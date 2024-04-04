@@ -1,0 +1,1 @@
+export const MY_TEST_SERVICE_CONTRACT = 'test:my-test-service'

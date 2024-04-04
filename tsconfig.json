@@ -14,7 +14,7 @@
 			"es2022",
 			"es5"
 		],
-		"module": "esnext",
+		"module": "commonjs",
 		"moduleResolution": "Node",
 		"noImplicitAny": true,
 		"sourceMap": true,
@@ -23,7 +23,7 @@
 		"esModuleInterop": true,
 		"experimentalDecorators": true,
 		"resolveJsonModule": true,
-		"target": "ESNext",
+		"target": "es2022",
 		"jsx": "react"
 	},
 	"include": [
