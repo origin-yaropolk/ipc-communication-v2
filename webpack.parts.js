@@ -6,8 +6,8 @@ const GenerateJsonPlugin = require('generate-json-webpack-plugin');
 const TerserPlugin = require("terser-webpack-plugin");
 
 function getPackageName() {
-	const PACKAGE_DEFAULT_NAME = 'tradingview-desktop';
-	const PACKAGE_LINUX_NAME = 'tradingview';
+	const PACKAGE_DEFAULT_NAME = 'ipc-communication-v2';
+	const PACKAGE_LINUX_NAME = 'ipc-communication-v2';
 
 	return process.platform === 'linux' ? PACKAGE_LINUX_NAME : PACKAGE_DEFAULT_NAME;
 }
@@ -30,18 +30,13 @@ function getPackageVersion(appVersion) {
 
 const packageMetadata = (appVersion, buildDate) => ({
 	name: getPackageName(),
-	productName: 'TradingView',
-	description: 'Experience extra power, extra speed and extra flexibility, all with the same UX you know and love.',
+	productName: 'ipc-communication-v2',
+	description: 'ipc-communication-v2',
 	main: 'index.js',
 	version: getPackageVersion(appVersion),
 	buildDate: getPackageBuildDate(buildDate),
 	private: true,
-	homepage: "https://tradingview.com",
 	license: "Proprietary",
-	author: {
-		name: "TradingView, Inc.",
-		email: "desktop@tradingview.com"
-	}
 });
 
 exports.main = (appVersion, buildDate) => ({

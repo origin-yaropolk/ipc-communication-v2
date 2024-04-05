@@ -4,7 +4,8 @@ import { IIpcInbox, IpcRequest } from './interfaces';
 import { IpcHelper } from './ipc-core';
 import * as IpcP from './ipc-protocol';
 import { RemoteInstanceEntry } from './remote-instance-entry';
-import { MessagePortCommunicator } from './communicators/message-port-communicator';
+import { MessagePortRendererRequester } from './communicators/message-port-requester';
+import { MessagePortInbox } from './communicators/message-port-inbox';
 
 
 export let ignoreIpcServiceProviderRequest__ = false;
@@ -25,18 +26,20 @@ export class RemoteInstanceManager {
             [IpcP.MESSAGE_GETINSTANCE]: (request: IpcRequest) => {
                 const data = request.body as IpcP.GetInstanceRequest;
 
+				const chan = new MessageChannelMain();
 				const instance = ServiceProvider.instance.create<Record<string, unknown>>(data.contracts);
 				const existingInstance = this.localInstances.find(inst => inst.id.includes(data.contracts[0]));
 				if (existingInstance) {
-					const chan = new MessageChannelMain();
-					existingInstance.addCommunicator(new MessagePortCommunicator(chan.port1));
-					IpcHelper.response(request, { instanceId: existingInstance.id });
+					existingInstance.addInbox(new MessagePortInbox(chan.port1));
+					IpcHelper.response(request, { port: chan.port2 });
 				}
 				else {
 					const instanceId = this.addInstance(instance);
-					IpcHelper.response(request, { instanceId });
+					const h = this.localInstances.find(inst => inst.id.includes(data.contracts[0]));
+					h?.addInbox(new MessagePortInbox(chan.port1));
+					IpcHelper.response(request, { port: chan.port2 });
 				}
-            }
+            },
         };
 
 		inbox.onRequest.subscribe((request: IpcRequest) => {
@@ -50,6 +53,8 @@ export class RemoteInstanceManager {
 				IpcHelper.responseFailure(request, error);
 			}
 		});
+
+
 
 		/*
 		const requestHandlers: { [key: string]: (request: IpcRequest) => void; } = {

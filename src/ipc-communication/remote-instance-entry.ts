@@ -1,7 +1,9 @@
-
 import { Disposable, getUID } from './communicators/communicator-base';
-import { MessagePortCommunicator } from './communicators/message-port-communicator';
 import { ReflectionAspect, reflectLocalInstance } from './reflection';
+import { MessagePortInbox } from './communicators/message-port-inbox';
+import { IpcRequest } from './interfaces';
+import { IpcHelper } from './ipc-core';
+import * as IpcP from './ipc-protocol';
 
 const instanceUidLength = 8;
 
@@ -13,7 +15,7 @@ function generateInstanceId(instance: unknown): string {
 }
 
 export class RemoteInstanceEntry implements Disposable {
-	communicators: MessagePortCommunicator[] = [];
+	inboxes: MessagePortInbox[] = [];
 
 	readonly id: string;
 	readonly instance: Record<string, unknown>;
@@ -23,15 +25,46 @@ export class RemoteInstanceEntry implements Disposable {
 		this.instance = instance;
 	}
 
-    addCommunicator(communicator: MessagePortCommunicator) {
-        this.communicators.push(communicator);
+    addInbox(inbox: MessagePortInbox) {
+        this.inboxes.push(inbox);
 
-        
+		inbox.onClosed.subscribe(() => {
+			inbox.dispose();
+			// todo: remove from array
+		});
+		
+		inbox.onRequest.subscribe((request) => {
+			this.dispatchRequest(request);
+		});
     }
 
+    dispatchRequest(request: IpcRequest): void {
+		if (IpcHelper.hasHeader(request, IpcP.HEADER_MESSAGE_TYPE, IpcP.MESSAGE_INVOKE)) {
+			return this.handleInvokeRequest(request);
+		}
+    }
+
+	private handleInvokeRequest(request: IpcRequest) {
+		const invoke = request.body as IpcP.InvokeRequest;
+
+		const args = IpcP.makeInboundArgs(invoke.args, (instanceId: string): unknown => {
+			return;
+		});
+
+		let method = this.instance[invoke.method];
+
+		if (typeof method === 'undefined') {
+			IpcHelper.responseFailure(request, `Instance (${ invoke.instanceId }) does not provide invocable property: (${ invoke.method })`);
+			return;
+		}
+
+		const result = (method as (...values: unknown[]) => unknown).apply( this.instance, args);
+		IpcHelper.response(request, IpcP.makeOutboundValue(result));
+	}
+
 	dispose(): void {
-		for (const communicator of this.communicators) {
-			communicator.dispose();
+		for (const inbox of this.inboxes) {
+			inbox.dispose();
 		}
 	}
 }

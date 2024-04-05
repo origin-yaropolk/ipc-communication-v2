@@ -1,4 +1,4 @@
-import { Event, MessagePortMain } from 'electron';
+import { Event, IpcRendererEvent } from 'electron';
 import { Subject } from 'rxjs';
 
 import { IIpcInbox, IpcMessage, IpcRequest, REQUEST_CHANNEL, RESPONSE_CHANNEL } from '../interfaces';
@@ -32,10 +32,16 @@ export abstract class BaseIpcInbox implements IIpcInbox {
 		});
 
 		this.onMessage(RESPONSE_CHANNEL, (ev: Event, msg: IpcMessage) => {
+			const [port] = (ev as IpcRendererEvent).ports
+
+			if (port) {
+				msg.body = { port: port};
+			}
+
 			this.onResponseSubject.next(msg);
 		});
 	}
 
 	protected abstract onMessage(channel: string, handler: (ev: Event, msg: IpcMessage) => void): void;
-	protected abstract makeResponseChannel(ev: Event): (msg: IpcMessage, port?: MessagePort | MessagePortMain) => void;
+	protected abstract makeResponseChannel(ev: Event): (msg: IpcMessage) => void;
 }

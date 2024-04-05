@@ -8,8 +8,8 @@ export class RendererIpcInbox extends BaseIpcInbox {
 		ipcRenderer.on(channel, handler);
 	}
 
-    makeResponseChannel(ev: Event): (msg: IpcMessage, port?: MessagePort | MessagePortMain) => void {
-		return function(msg: IpcMessage, port?: MessagePort | MessagePortMain): void {
+    makeResponseChannel(ev: Event): (msg: IpcMessage) => void {
+		return function(msg: IpcMessage): void {
 			ipcRenderer.send(RESPONSE_CHANNEL, msg);
 		};
 	}
