@@ -6,6 +6,7 @@ import * as IpcP from './ipc-protocol';
 import { RemoteInstanceEntry } from './remote-instance-entry';
 import { MessagePortMainInbox } from './communicators/message-port-main-inbox';
 import { ServiceLocator } from '../ipc-services/service-locator';
+import { MessageChannelConstructor } from './message-channel-constructor';
 
 
 export let ignoreIpcServiceProviderRequest__ = false;
@@ -13,7 +14,7 @@ export let ignoreIpcServiceProviderRequest__ = false;
 export class RemoteInstanceManager {
 	private localInstances: RemoteInstanceEntry[] = [];
 
-	constructor(inbox: IIpcInbox) {
+	constructor(inbox: IIpcInbox, private channelCreator: MessageChannelConstructor) {
         const requestHandlers: { [key: string]: (requet: IpcRequest) => void; } = {
             [IpcP.MESSAGE_REGISTERINSTANCE]: (request: IpcRequest) => {
                 const data = request.body as IpcP.RegisterInstanceRequest;
@@ -26,18 +27,19 @@ export class RemoteInstanceManager {
             [IpcP.MESSAGE_GETINSTANCE]: (request: IpcRequest) => {
                 const data = request.body as IpcP.GetInstanceRequest;
 
-				const chan = new MessageChannelMain();
+				const chan = this.channelCreator();
+
 				const instance = ServiceLocator.get<Record<string, unknown>>(data.contracts);
 				const existingInstance = this.localInstances.find(inst => inst.id.includes(data.contracts[0]));
 				if (existingInstance) {
-					existingInstance.addInbox(new MessagePortMainInbox(chan.port1));
-					IpcHelper.response(request, { port: chan.port2 });
+					existingInstance.addInbox(chan.inbox);
+					IpcHelper.response(request, { port: chan.port });
 				}
 				else {
 					const instanceId = this.addInstance(instance);
 					const h = this.localInstances.find(inst => inst.id.includes(data.contracts[0]));
-					h?.addInbox(new MessagePortMainInbox(chan.port1));
-					IpcHelper.response(request, { port: chan.port2 });
+					h?.addInbox(chan.inbox);
+					IpcHelper.response(request, { port: chan.port });
 				}
             },
         };
@@ -53,8 +55,6 @@ export class RemoteInstanceManager {
 				IpcHelper.responseFailure(request, error);
 			}
 		});
-
-
 
 		/*
 		const requestHandlers: { [key: string]: (request: IpcRequest) => void; } = {

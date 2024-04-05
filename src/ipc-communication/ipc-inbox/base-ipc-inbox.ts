@@ -34,7 +34,7 @@ export abstract class BaseIpcInbox implements IIpcInbox {
 			const [port] = (ev as IpcRendererEvent).ports
 
 			if (port) {
-				msg.body = { port: port};
+				msg.body = { port: port };
 			}
 
 			this.onResponseSubject.next(msg);

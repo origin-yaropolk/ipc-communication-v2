@@ -8,10 +8,16 @@ import { MessagePortRendererRequester } from "../ipc-communication/communicators
 import { IpcHelper } from "../ipc-communication/ipc-core";
 import { IpcProxy } from "../ipc-communication/proxy/ipc-proxy";
 import { MyRendererTestService } from "../services/my-renderer-test-service";
+import { RemoteInstanceManager } from "../ipc-communication/remote-instance-manager";
+import { getMessageChannelConstructor } from "../ipc-communication/message-channel-constructor";
 
 function extractPort(body: unknown): MessagePort | undefined {
     return (body as PortRendererResponse).port;
 }
+
+function startServices(...services: unknown[]): void {}
+
+startServices(MyRendererTestService);
 
 async function startRenderer(): Promise<void> {
     const ipcCommunicator = new IpcCommunicator(new RendererIpcInbox(), (msg) => {
@@ -43,6 +49,8 @@ async function startRenderer(): Promise<void> {
         console.log(res);
         console.log(gre);
     }
+
+    const rim = new RemoteInstanceManager(new RendererIpcInbox(), getMessageChannelConstructor());
 }
 
 startRenderer();
