@@ -4,25 +4,10 @@ import { RendererIpcInbox } from "../ipc-communication/ipc-inbox/renderer-ipc-in
 import { IpcMessage, PortRendererResponse, REQUEST_CHANNEL } from "../ipc-communication/interfaces";
 import * as IpcP from '../ipc-communication/ipc-protocol';
 import { MY_TEST_SERVICE_CONTRACT } from "../services/contracts";
-import { MessagePortRendererRequester } from "../ipc-communication/communicators/message-port-requester";
+import { MessagePortRendererRequester } from "../ipc-communication/communicators/message-port-renderer-requester";
 import { IpcHelper } from "../ipc-communication/ipc-core";
-
-async function remoteInvoke__<T = unknown>(communicator: MessagePortRendererRequester, instanceId: string, method: string, messageType: string, args: any[]): Promise<T> {
-	const body: IpcP.InvokeRequest = {
-		instanceId,
-		method,
-		args: IpcP.makeOutboundArgs(args),
-	};
-
-	const response = await communicator.request({
-		headers: {
-			[IpcP.HEADER_MESSAGE_TYPE]: messageType,
-		},
-		body,
-	});
-
-	return IpcHelper.getResponseBody<T>(response);
-}
+import { IpcProxy } from "../ipc-communication/proxy/ipc-proxy";
+import { MyRendererTestService } from "../services/my-renderer-test-service";
 
 function extractPort(body: unknown): MessagePort | undefined {
     return (body as PortRendererResponse).port;
@@ -44,15 +29,19 @@ async function startRenderer(): Promise<void> {
         body,
     };
     
-
-
     const hui = await ipcCommunicator.send(instanceRequest);
     const p = extractPort(hui.body);
 
     if (p) {
         const c = new MessagePortRendererRequester(p);
-        const res = await remoteInvoke__(c, '0', 'add', IpcP.MESSAGE_INVOKE, [1, 2]);
+        const service = IpcProxy.create<IMyTestService>(c);
+
+
+        const res = await service.add(1, 2);
+        const gre = await service.greet();
+
         console.log(res);
+        console.log(gre);
     }
 }
 

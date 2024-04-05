@@ -54,7 +54,7 @@ export class RemoteInstanceEntry implements Disposable {
 		let method = this.instance[invoke.method];
 
 		if (typeof method === 'undefined') {
-			IpcHelper.responseFailure(request, `Instance (${ invoke.instanceId }) does not provide invocable property: (${ invoke.method })`);
+			IpcHelper.responseFailure(request, `Instance does not provide invocable property: (${ invoke.method })`);
 			return;
 		}
 

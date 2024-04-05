@@ -1,24 +1,22 @@
+import { Promisify } from "../ipc-communication/proxy/ipc-proxy";
+import { ReflectionAspect, reflectLocalInstance } from "../ipc-communication/reflection";
 
 export type ServiceFactory = (contracts: string[], ...args: unknown[]) => unknown;
 
 export interface IServiceProvider {
-	tryCreate(contracts: string[] | string, ...args: unknown[]): unknown;
+	provide(contracts: string[] | string, ...args: unknown[]): unknown;
 }
+
 export class ServiceProvider implements IServiceProvider {
 	static readonly instance = new ServiceProvider();
 
 	private readonly factories: ServiceFactory[] = [];
-	private readonly providers: IServiceProvider[] = [];
 
 	registerFactory(factory: ServiceFactory): void {
 		this.factories.push(factory);
 	}
 
-	registerProvider(provider: IServiceProvider): void {
-		this.providers.push(provider);
-	}
-
-	tryCreate(contracts: string[] | string, ...args: unknown[]): unknown | undefined {
+	private tryCreate(contracts: string[] | string, ...args: unknown[]): unknown | undefined {
 		const requestedContracts = contracts instanceof Array ? contracts : [contracts];
 
 		for (const factory of this.factories) {
@@ -28,24 +26,10 @@ export class ServiceProvider implements IServiceProvider {
 			}
 		}
 
-		for (const provider of this.providers) {
-			const instance = provider.tryCreate(requestedContracts, ...args);
-			if (instance) {
-				return instance;
-			}
-		}
-
 		return undefined;
 	}
 
-	/**
-	* Generic "T" can't include fields of BehaviorSubject type,
-	* because IpcPropertyProxy doesn't support BehaviorSubject type from Rx.js
-
-	* You can read more in {@link https://git.xtools.tv/tv/desktop-application/-/blob/2/src/communication/communication.md#using-services Docs communication}
-	* and in source code {@link https://git.xtools.tv/tv/desktop-application/-/blob/2/src/communication/ipc-proxy.ts#L76 IpcPropertyProxy.makeSubscribe}
-	 */
-	create<T = unknown>(contracts: string[] | string, ...args: unknown[]): T {
+	provide<T = unknown>(contracts: string[], ...args: unknown[]): T {
 		const instance: T = this.tryCreate(contracts, ...args) as T;
 
 		if (!instance) {
@@ -54,22 +38,40 @@ export class ServiceProvider implements IServiceProvider {
 		}
 		return instance;
 	}
-
 }
 
-export type GenericConstructor<T = {}> = new (...args: any[]) => T;
+export class RemoteServiceProvider implements IServiceProvider {
+	static readonly instance = new RemoteServiceProvider();
 
-export function AdditionalServiceProvider() {
-	return (constructor: GenericConstructor): void => {
-		const provider: unknown = new constructor();
-		ServiceProvider.instance.registerProvider(provider as IServiceProvider);
-	};
-}
-
-@AdditionalServiceProvider()
-class IpcHostServiceProvider implements IServiceProvider {
-	tryCreate(contracts: string | string[], ...args: any[]): unknown {
-		const contractsArray = contracts instanceof Array ? contracts : [contracts];
-		return;
+	private tryCreate(contracts: string[], ...args: unknown[]): unknown | undefined {
+		return undefined;
 	}
+
+	provide<T = unknown>(contracts: string[], ...args: unknown[]): Promisify<T> {
+		const instance = this.tryCreate(contracts, ...args) as Promisify<T>;
+
+		if (!instance) {
+			const str = contracts instanceof Array ? contracts.join(';') : contracts;
+			throw new Error(`Local service with contracts [${ str }] not registered, and remoting not configured. Instance can not be created.`);
+		}
+
+		return instance;
+	}
+}
+
+export function exposeSingleton(instance: unknown): void {
+	const contracts = reflectLocalInstance(instance, ReflectionAspect.Contracts)?.contracts;
+	if (!contracts) {
+		throw new Error('Object does not provide contracts. Use Service decorator');
+	}
+
+	const factory = (requestedContracts: string[], ...args: unknown[]): unknown => {
+		if (args.length > 0) {
+			console.debug('Using non zero arguments for singleton factory');
+		}
+		const hasAllContracts = requestedContracts.every(c => contracts.includes(c));
+		return hasAllContracts ? instance : undefined;
+	};
+
+	ServiceProvider.instance.registerFactory(factory);
 }

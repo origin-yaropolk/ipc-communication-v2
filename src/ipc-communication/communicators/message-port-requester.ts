@@ -1,17 +1,12 @@
+import { MessagePortMain } from 'electron';
 import { IpcMessage, IpcResponse } from '../interfaces';
 import { Disposable, HEADER_INVOKE_ID, Invocation } from './communicator-base';
 
-export class MessagePortRendererRequester implements Disposable {
-	private idGenerator = 0;
+export abstract class MessagePortRequester implements Disposable {
+	private idGenerator = 1;
 	private readonly invocations: Map<number, Invocation> = new Map();
 
-	constructor(public port: MessagePort) {
-		port.onmessage = ev => {                
-			this.responseHandler(ev.data);
-		}
-
-		port.start();
-	}
+    constructor(protected port: MessagePort | MessagePortMain){}
 
 	request(msg: IpcMessage): Promise<IpcResponse> {
 		return new Promise<IpcMessage>((resolve, reject) => {
@@ -42,7 +37,7 @@ export class MessagePortRendererRequester implements Disposable {
 		});
 	}
 
-	private responseHandler(msg: IpcResponse) {
+	protected responseHandler(msg: IpcResponse) {
 		const invokeId = this.getMyInvokeId(msg);
 		const invocation = this.invocations.get(invokeId);
 
@@ -60,6 +55,6 @@ export class MessagePortRendererRequester implements Disposable {
 	}
 
 	dispose(): void {
-		this.port.close();
-	}
+        this.port.close();
+    }
 }

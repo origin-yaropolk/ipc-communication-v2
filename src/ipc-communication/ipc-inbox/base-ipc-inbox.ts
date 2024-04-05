@@ -18,8 +18,7 @@ export abstract class BaseIpcInbox implements IIpcInbox {
 
 			const request: IpcRequest = {
 				...msg,
-				responseChannel,
-				context: ev,
+				responseChannel
 			};
 
 			try {

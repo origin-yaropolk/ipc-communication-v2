@@ -4,8 +4,8 @@ import { IIpcInbox, IpcRequest } from './interfaces';
 import { IpcHelper } from './ipc-core';
 import * as IpcP from './ipc-protocol';
 import { RemoteInstanceEntry } from './remote-instance-entry';
-import { MessagePortRendererRequester } from './communicators/message-port-requester';
-import { MessagePortInbox } from './communicators/message-port-inbox';
+import { MessagePortMainInbox } from './communicators/message-port-main-inbox';
+import { ServiceLocator } from '../ipc-services/service-locator';
 
 
 export let ignoreIpcServiceProviderRequest__ = false;
@@ -18,8 +18,8 @@ export class RemoteInstanceManager {
             [IpcP.MESSAGE_REGISTERINSTANCE]: (request: IpcRequest) => {
                 const data = request.body as IpcP.RegisterInstanceRequest;
 
-				const instance = ServiceProvider.instance.create<Record<string, unknown>>(data.contracts);
-
+				const instance = ServiceLocator.get<Record<string, unknown>>(data.contracts);
+				
                 IpcHelper.response(request, { instanceId: 1 });
             },
 
@@ -27,16 +27,16 @@ export class RemoteInstanceManager {
                 const data = request.body as IpcP.GetInstanceRequest;
 
 				const chan = new MessageChannelMain();
-				const instance = ServiceProvider.instance.create<Record<string, unknown>>(data.contracts);
+				const instance = ServiceLocator.get<Record<string, unknown>>(data.contracts);
 				const existingInstance = this.localInstances.find(inst => inst.id.includes(data.contracts[0]));
 				if (existingInstance) {
-					existingInstance.addInbox(new MessagePortInbox(chan.port1));
+					existingInstance.addInbox(new MessagePortMainInbox(chan.port1));
 					IpcHelper.response(request, { port: chan.port2 });
 				}
 				else {
 					const instanceId = this.addInstance(instance);
 					const h = this.localInstances.find(inst => inst.id.includes(data.contracts[0]));
-					h?.addInbox(new MessagePortInbox(chan.port1));
+					h?.addInbox(new MessagePortMainInbox(chan.port1));
 					IpcHelper.response(request, { port: chan.port2 });
 				}
             },

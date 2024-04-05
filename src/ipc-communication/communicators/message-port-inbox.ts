@@ -1,37 +1,34 @@
 import { MessagePortMain } from 'electron';
 import { Subject } from 'rxjs';
 
-import { IpcMessage as IpcResponse, IpcRequest } from '../interfaces';
+import { IpcMessage as IpcResponse, IpcRequest, IpcMessage } from '../interfaces';
 import { Disposable } from './communicator-base';
 
-export class MessagePortInbox implements Disposable {
-	private readonly onRequestSubject = new Subject<IpcRequest>();
+export abstract class MessagePortInbox implements Disposable {
+	protected readonly onRequestSubject = new Subject<IpcRequest>();
 	readonly onRequest = this.onRequestSubject.asObservable();
 
-    private readonly onClosedSubject = new Subject<void>();
+    protected readonly onClosedSubject = new Subject<void>();
 	readonly onClosed = this.onClosedSubject.asObservable();
 
-	constructor(private port: MessagePortMain) {
-        this.port.on('message', (messageEvent: Electron.MessageEvent) => {
-            const responseChannel = this.makeResponseChannel(this.port);
+	constructor(protected port: MessagePort | MessagePortMain) {}
 
-            const request: IpcRequest = {
-                ...messageEvent.data,
-                responseChannel,
-                context: messageEvent
-            };
+    protected messageHanlder(message: IpcMessage): void {
+        const responseChannel = this.makeResponseChannel(this.port);
 
-            this.onRequestSubject.next(request);
-        });
+        const request: IpcRequest = {
+            ...message,
+            responseChannel
+        };
 
-        this.port.on('close', () => {
-            this.onClosedSubject.next();
-        });
+        this.onRequestSubject.next(request);
+    }
 
-        this.port.start();
-	}
+    protected closeHandler(): void {
+        this.onClosedSubject.next();
+    }
 
-	private makeResponseChannel(port: MessagePortMain): (response: IpcResponse) => void {
+	protected makeResponseChannel(port: MessagePort | MessagePortMain): (response: IpcResponse) => void {
         return function(response: IpcResponse): void {
             port.postMessage(response);
         };

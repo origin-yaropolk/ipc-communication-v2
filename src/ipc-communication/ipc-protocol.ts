@@ -5,7 +5,6 @@ import { ipcMain } from 'electron';
 const isMainProcess = typeof ipcMain !== 'undefined';
 
 export interface InstanceBaseRequest {
-	instanceId: string;
 }
 
 export interface InvokeRequest extends InstanceBaseRequest {
