@@ -37,6 +37,7 @@ export const HEADER_MESSAGE_TYPE = 'message-type';
 
 export const MESSAGE_REGISTERINSTANCE = 'host:register-instance';
 export const MESSAGE_GETINSTANCE = 'host:get-instance';
+export const MESSAGE_PORTREQUEST = 'host:port-request';
 
 export const MESSAGE_INVOKE = 'instance:invoke';
 export const MESSAGE_DISPOSE = 'instance:dispose';

@@ -1,4 +1,4 @@
-import { MessagePortMain } from 'electron';
+import { MessagePortMain, WebContents } from 'electron';
 import { Observable } from 'rxjs';
 
 export const REQUEST_CHANNEL = 'tvd-ipc:request';
@@ -13,6 +13,7 @@ export type IpcResponse = IpcMessage;
 
 export interface IpcRequest extends IpcMessage {
 	responseChannel(value: IpcMessage): void;
+	webContents?: WebContents;
 }
 
 export interface PortResponse {

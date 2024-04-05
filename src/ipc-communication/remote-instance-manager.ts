@@ -1,12 +1,13 @@
 import { MessageChannelMain } from 'electron';
 import { ServiceProvider } from '../ipc-services/service-provider';
-import { IIpcInbox, IpcRequest } from './interfaces';
+import { IIpcInbox, IpcMessage, IpcRequest, REQUEST_CHANNEL } from './interfaces';
 import { IpcHelper } from './ipc-core';
 import * as IpcP from './ipc-protocol';
 import { RemoteInstanceEntry } from './remote-instance-entry';
 import { MessagePortMainInbox } from './communicators/message-port-main-inbox';
 import { ServiceLocator } from '../ipc-services/service-locator';
 import { MessageChannelConstructor } from './message-channel-constructor';
+import { IpcCommunicator } from './communicators/ipc-communicator';
 
 
 export let ignoreIpcServiceProviderRequest__ = false;
@@ -14,14 +15,22 @@ export let ignoreIpcServiceProviderRequest__ = false;
 export class RemoteInstanceManager {
 	private localInstances: RemoteInstanceEntry[] = [];
 
+	private remoteInstancesRegistry: Map<string, IpcCommunicator> = new Map();
+
 	constructor(inbox: IIpcInbox, private channelCreator: MessageChannelConstructor) {
         const requestHandlers: { [key: string]: (requet: IpcRequest) => void; } = {
             [IpcP.MESSAGE_REGISTERINSTANCE]: (request: IpcRequest) => {
                 const data = request.body as IpcP.RegisterInstanceRequest;
 
-				const instance = ServiceLocator.get<Record<string, unknown>>(data.contracts);
+				data.contracts.forEach(contract => {
+					if (request.webContents) {
+						this.remoteInstancesRegistry.set(contract, new IpcCommunicator(inbox, (msg) => {
+							request.webContents?.postMessage(REQUEST_CHANNEL, msg)
+						}));
+					}
+				})
 				
-                IpcHelper.response(request, { instanceId: 1 });
+                IpcHelper.response(request, {});
             },
 
             [IpcP.MESSAGE_GETINSTANCE]: (request: IpcRequest) => {
@@ -34,12 +43,14 @@ export class RemoteInstanceManager {
 				if (existingInstance) {
 					existingInstance.addInbox(chan.inbox);
 					IpcHelper.response(request, { port: chan.port });
+					return;
 				}
-				else {
+				else if (instance) {
 					const instanceId = this.addInstance(instance);
 					const h = this.localInstances.find(inst => inst.id.includes(data.contracts[0]));
 					h?.addInbox(chan.inbox);
 					IpcHelper.response(request, { port: chan.port });
+					return;
 				}
             },
         };

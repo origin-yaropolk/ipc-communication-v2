@@ -1,4 +1,4 @@
-import { Event, MessagePortMain, ipcRenderer } from 'electron';
+import { Event, ipcRenderer } from 'electron';
 
 import { IpcMessage, PortRendererResponse, RESPONSE_CHANNEL } from '../interfaces';
 import { BaseIpcInbox } from './base-ipc-inbox';

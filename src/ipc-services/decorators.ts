@@ -19,8 +19,9 @@ export function Service(...contracts: string[]) {
 
 export function ExposeService(lifetime: ServiceLifeTime) {
 	return (constructor: GenericConstructor): void => {
+		const contracts = Reflect.getMetadata(SERVICE_CONTRACTS_METAKEY, constructor) as string[] | undefined;
+		
 		const hasAllContracts = (requestedContracts: string[]): boolean => {
-			const contracts = Reflect.getMetadata(SERVICE_CONTRACTS_METAKEY, constructor) as string[] | undefined;
 			if (!contracts) {
 				console.error(`Service can not be exposed, because Service meta data not provided:[${ constructor.name }]`);
 				return false;
@@ -29,7 +30,7 @@ export function ExposeService(lifetime: ServiceLifeTime) {
 		};
 
 		if (lifetime === ServiceLifeTime.Transient) {
-			ServiceProvider.instance.registerFactory((requestedContracts: string[], ...args: unknown[]) => {
+			ServiceProvider.instance.registerFactory(contracts, (requestedContracts: string[], ...args: unknown[]) => {
 				if (!hasAllContracts(requestedContracts)) {
 					return null;
 				}
@@ -56,7 +57,7 @@ export function ExposeService(lifetime: ServiceLifeTime) {
 					return instance;
 				};
 			})();
-			ServiceProvider.instance.registerFactory(singletonFactory);
+			ServiceProvider.instance.registerFactory(contracts, singletonFactory);
 		}
 	};
 }

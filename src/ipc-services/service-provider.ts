@@ -1,5 +1,10 @@
+import { ipcRenderer } from "electron";
+import { IIpcInbox, IpcMessage, REQUEST_CHANNEL } from "../ipc-communication/interfaces";
+import { RendererIpcInbox } from "../ipc-communication/ipc-inbox/renderer-ipc-inbox";
 import { Promisify } from "../ipc-communication/proxy/ipc-proxy";
 import { ReflectionAspect, reflectLocalInstance } from "../ipc-communication/reflection";
+import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
+import * as IpcP from '../ipc-communication/ipc-protocol';
 
 export type ServiceFactory = (contracts: string[], ...args: unknown[]) => unknown;
 
@@ -8,11 +13,30 @@ export interface IServiceProvider {
 }
 
 export class ServiceProvider implements IServiceProvider {
-	static readonly instance = new ServiceProvider();
+	static readonly instance = new ServiceProvider(ipcRenderer ? new IpcCommunicator(new RendererIpcInbox(), (msg) => {
+        ipcRenderer.send(REQUEST_CHANNEL, msg);
+    }) : undefined);
 
 	private readonly factories: ServiceFactory[] = [];
 
-	registerFactory(factory: ServiceFactory): void {
+	constructor(private communicator?: IpcCommunicator) {}
+
+	registerFactory(contracts: string[] | undefined, factory: ServiceFactory): void {
+		if (ipcRenderer && contracts && this.communicator) {
+			const body: IpcP.RegisterInstanceRequest = {
+				contracts,
+			};
+			
+			const instanceRegister: IpcMessage = {
+				headers: {
+					[IpcP.HEADER_MESSAGE_TYPE]: IpcP.MESSAGE_REGISTERINSTANCE,
+				},
+				body,
+			};
+
+			this.communicator.send(instanceRegister);
+		}
+
 		this.factories.push(factory);
 	}
 
@@ -73,5 +97,5 @@ export function exposeSingleton(instance: unknown): void {
 		return hasAllContracts ? instance : undefined;
 	};
 
-	ServiceProvider.instance.registerFactory(factory);
+	ServiceProvider.instance.registerFactory(contracts, factory);
 }
