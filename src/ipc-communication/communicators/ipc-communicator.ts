@@ -15,7 +15,7 @@ export class IpcCommunicator implements Disposable {
 		this.inbox = inbox;
 		this.sender = sender;
 
-		this.responseSubscription = inbox.onResponse.subscribe((msg: IpcMessage) => {
+		this.responseSubscription = this.inbox.onResponse.subscribe((msg: IpcMessage) => {
 			const id = this.getMyInvokeId(msg);
 
 			if (!id) {
@@ -38,7 +38,7 @@ export class IpcCommunicator implements Disposable {
 			msg.headers[HEADER_INVOKE_ID] = msgId;
 			msg.headers[HEADER_COMMUNICATOR_ID] = this.id;
 
-			const responseTimeout = 500;
+			const responseTimeout = 1500;
 
 			const invocationTimeout = setTimeout(() => {
 				const id = this.getMyInvokeId(msg);

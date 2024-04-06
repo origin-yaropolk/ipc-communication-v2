@@ -13,7 +13,8 @@ export type IpcResponse = IpcMessage;
 
 export interface IpcRequest extends IpcMessage {
 	responseChannel(value: IpcMessage): void;
-	webContents?: WebContents;
+	webContentsId?: number;
+	port?: MessagePort;
 }
 
 export interface PortResponse {

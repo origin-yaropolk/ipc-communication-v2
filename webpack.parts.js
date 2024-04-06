@@ -94,7 +94,9 @@ exports.main = (appVersion, buildDate) => ({
 
 // when adding new renderer page add folder name in app here (or path)
 const commonWindows = [
-	'worker',
+	'worker-client',
+	'worker-first',
+	'worker-second'
 ];
 exports.renderers = () => buildRenderers(commonWindows);
 
@@ -160,7 +162,7 @@ function buildRenderers(commonAppFolders) {
 	const setRendersData = (folder, isTransparent) => {
 		let entryName = folder.toLowerCase();
 
-		renderers.entry[entryName] = { import: `./src/${ folder }/index.tsx`, filename: `./${ folder }/bundle.js` };
+		renderers.entry[entryName] = { import: `./src/workers/${ folder }/index.tsx`, filename: `./${ folder }/bundle.js` };
 		renderers.plugins.push(
 			new HtmlWebpackPlugin({
 				inject: true,

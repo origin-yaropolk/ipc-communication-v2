@@ -9,6 +9,6 @@ export class MessagePortMainRequester extends MessagePortRequester {
             this.responseHandler(ev.data);
         });
 
-		port.start();
+		this.port.start();
 	}
 }

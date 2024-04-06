@@ -14,7 +14,7 @@ export interface InvokeRequest extends InstanceBaseRequest {
 
 export type DisposeRequest = InstanceBaseRequest;
 
-export interface GetInstanceRequest {
+export interface InstanceRequest {
 	contracts: string[];
 }
 
@@ -22,8 +22,10 @@ export interface RegisterInstanceRequest {
     contracts: string[];
 }
 
-export type GetInstanceResponse = InstanceBaseRequest;
+export type UnregisterInstanceRequest = RegisterInstanceRequest;
+export type PortRequest = RegisterInstanceRequest;
 
+export type GetInstanceResponse = InstanceBaseRequest;
 
 export interface DispatchedInstance {
 	dispatchedRemoteInstanceId: string;
@@ -35,9 +37,10 @@ export interface DispatchedCallback {
 
 export const HEADER_MESSAGE_TYPE = 'message-type';
 
-export const MESSAGE_REGISTERINSTANCE = 'host:register-instance';
-export const MESSAGE_GETINSTANCE = 'host:get-instance';
-export const MESSAGE_PORTREQUEST = 'host:port-request';
+export const MESSAGE_REGISTER_INSTANCE = 'host:register-instance';
+export const MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance';
+export const MESSAGE_GET_INSTANCE = 'host:get-instance';
+export const MESSAGE_PORT_REQUEST = 'host:port-request';
 
 export const MESSAGE_INVOKE = 'instance:invoke';
 export const MESSAGE_DISPOSE = 'instance:dispose';

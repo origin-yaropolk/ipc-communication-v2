@@ -29,7 +29,7 @@ export class ServiceProvider implements IServiceProvider {
 			
 			const instanceRegister: IpcMessage = {
 				headers: {
-					[IpcP.HEADER_MESSAGE_TYPE]: IpcP.MESSAGE_REGISTERINSTANCE,
+					[IpcP.HEADER_MESSAGE_TYPE]: IpcP.MESSAGE_REGISTER_INSTANCE,
 				},
 				body,
 			};

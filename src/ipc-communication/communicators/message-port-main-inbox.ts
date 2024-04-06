@@ -14,6 +14,6 @@ export class MessagePortMainInbox extends MessagePortInbox {
             this.closeHandler();
         });
 
-        port.start();
+        this.port.start();
 	}
 }

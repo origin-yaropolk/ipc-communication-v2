@@ -8,10 +8,6 @@ export class MessagePortRendererInbox extends MessagePortInbox {
             this.messageHanlder(ev.data);
         };
 
-        port.close = () => {
-            this.closeHandler();
-        };
-
         this.port.start();
 	}
 }
