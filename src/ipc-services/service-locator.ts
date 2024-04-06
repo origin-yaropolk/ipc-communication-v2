@@ -6,7 +6,7 @@ export class ServiceLocator {
         return ServiceProvider.instance.provide<T>(contracts);
     }
 
-    static getRemote<T = unknown>(contracts: string[]): Promisify<T> {
-        return RemoteServiceProvider.instance.provide<T>(contracts);
-    }
+    //static getRemote<T = unknown>(contracts: string[]): Promisify<T> {
+    //    // return RemoteServiceProvider.instance.provide<T>(contracts);
+    //}
 }

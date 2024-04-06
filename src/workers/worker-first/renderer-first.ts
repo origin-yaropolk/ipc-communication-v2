@@ -8,7 +8,7 @@ import { MessagePortRendererRequester } from "../../ipc-communication/communicat
 import { IpcHelper } from "../../ipc-communication/ipc-core";
 import { IpcProxy, Promisify } from "../../ipc-communication/proxy/ipc-proxy";
 import { MyRendererTestService } from "../../services/my-renderer-test-service";
-import { RemoteInstanceManager } from "../../ipc-communication/remote-instance-manager";
+import { RemoteInstanceManager } from "../../ipc-services/remote-instance-manager";
 import { getMessageChannelConstructor } from "../../ipc-communication/message-channel-constructor";
 
 function extractPort(body: unknown): MessagePort | undefined {

@@ -1,4 +1,4 @@
-import { GenericConstructor, SERVICE_CONTRACTS_METAKEY } from "../ipc-services/decorators";
+import { GenericConstructor, SERVICE_CONTRACTS_METAKEY } from "./decorators";
 
 export interface ServiceMethodDescription {
 	name: string;

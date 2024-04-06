@@ -1,9 +1,9 @@
-import { Disposable, getUID } from './communicators/communicator-base';
+import { Disposable, getUID } from '../ipc-communication/communicators/communicator-base';
 import { ReflectionAspect, reflectLocalInstance } from './reflection';
-import { MessagePortInbox } from './communicators/message-port-inbox';
-import { IpcRequest } from './interfaces';
-import { IpcHelper } from './ipc-core';
-import * as IpcP from './ipc-protocol';
+import { MessagePortInbox } from '../ipc-communication/communicators/message-port-inbox';
+import { IpcRequest } from '../ipc-communication/interfaces';
+import { IpcHelper } from '../ipc-communication/ipc-core';
+import * as IpcP from '../ipc-communication/ipc-protocol';
 
 const instanceUidLength = 8;
 
@@ -14,11 +14,10 @@ function generateInstanceId(instance: unknown): string {
 	return id;
 }
 
-export class RemoteInstanceEntry implements Disposable {
-	inboxes: MessagePortInbox[] = [];
-
+export class RemoteInvokableInstance implements Disposable {
 	readonly id: string;
-	readonly instance: Record<string, unknown>;
+	private readonly instance: Record<string, unknown>;
+	private readonly inboxes: MessagePortInbox[] = [];
 
 	constructor(instance: Record<string, unknown>) {
 		this.id = generateInstanceId(instance);
@@ -34,11 +33,11 @@ export class RemoteInstanceEntry implements Disposable {
 		});
 		
 		inbox.onRequest.subscribe((request) => {
-			this.dispatchRequest(request);
+			this.handleRequest(request);
 		});
     }
 
-    dispatchRequest(request: IpcRequest): void {
+    private handleRequest(request: IpcRequest): void {
 		if (IpcHelper.hasHeader(request, IpcP.HEADER_MESSAGE_TYPE, IpcP.MESSAGE_INVOKE)) {
 			return this.handleInvokeRequest(request);
 		}
@@ -46,12 +45,8 @@ export class RemoteInstanceEntry implements Disposable {
 
 	private handleInvokeRequest(request: IpcRequest) {
 		const invoke = request.body as IpcP.InvokeRequest;
-
-		const args = IpcP.makeInboundArgs(invoke.args, (instanceId: string): unknown => {
-			return;
-		});
-
-		let method = this.instance[invoke.method];
+		const args = IpcP.makeInboundArgs(invoke.args);
+		const method = this.instance[invoke.method];
 
 		if (typeof method === 'undefined') {
 			IpcHelper.responseFailure(request, `Instance does not provide invocable property: (${ invoke.method })`);

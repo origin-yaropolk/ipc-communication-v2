@@ -37,6 +37,7 @@ export interface DispatchedCallback {
 
 export const HEADER_MESSAGE_TYPE = 'message-type';
 
+export const MESSAGE_HANDSHAKE = 'host:handshake';
 export const MESSAGE_REGISTER_INSTANCE = 'host:register-instance';
 export const MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance';
 export const MESSAGE_GET_INSTANCE = 'host:get-instance';
@@ -120,20 +121,8 @@ export function makeOutboundArgs(args: any[]): any[] {
 	return args.map(makeOutboundValue);
 }
 
-/**
- * Making  that will be passed into service instance method invocation.
- * Any remote instance info will be transformed by proxyFactory.
- */
-export function makeInboundArgs(args: unknown[], proxyFactory: (instanceId: string) => unknown): unknown[] {
+export function makeInboundArgs(args: unknown[]): unknown[] {
 	return args.map(value => {
-		if (isDispatchedInstance(value)) {
-			return proxyFactory(value.dispatchedRemoteInstanceId);
-		}
-
-		if (isDispatchedCallback(value)) {
-			return proxyFactory(value.callbackId);
-		}
-
 		return value;
 	});
 }

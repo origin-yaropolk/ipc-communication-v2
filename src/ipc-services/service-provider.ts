@@ -1,10 +1,13 @@
-import { ipcRenderer } from "electron";
-import { IIpcInbox, IpcMessage, REQUEST_CHANNEL } from "../ipc-communication/interfaces";
+import { MessageChannelMain, MessagePortMain, ipcRenderer, webContents } from "electron";
+import { IpcMessage, PortResponse, REQUEST_CHANNEL } from "../ipc-communication/interfaces";
 import { RendererIpcInbox } from "../ipc-communication/ipc-inbox/renderer-ipc-inbox";
-import { Promisify } from "../ipc-communication/proxy/ipc-proxy";
-import { ReflectionAspect, reflectLocalInstance } from "../ipc-communication/reflection";
+import { IpcProxy, Promisify } from "../ipc-communication/proxy/ipc-proxy";
+import { ReflectionAspect, reflectLocalInstance } from "./reflection";
 import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
 import * as IpcP from '../ipc-communication/ipc-protocol';
+import { ServiceHost } from "./service-host";
+import { MessagePortMainRequester } from "../ipc-communication/communicators/message-port-main-requester";
+import { MainIpcInbox } from "../ipc-communication/ipc-inbox/main-ipc-inbox";
 
 export type ServiceFactory = (contracts: string[], ...args: unknown[]) => unknown;
 
@@ -64,15 +67,35 @@ export class ServiceProvider implements IServiceProvider {
 	}
 }
 
-export class RemoteServiceProvider implements IServiceProvider {
+export class RemoteServiceProvider {
 	static readonly instance = new RemoteServiceProvider();
 
-	private tryCreate(contracts: string[], ...args: unknown[]): unknown | undefined {
-		return undefined;
+	private tryCreate(host: ServiceHost, contracts: string[], ...args: unknown[]): unknown | undefined {
+		const targetId = host.getHostId(contracts);
+
+		if (!targetId) {
+			return;
+		}
+
+		const targetHost = webContents.fromId(targetId);
+
+		if (!targetHost) {
+			return;
+		}
+
+		const channel = new MessageChannelMain();
+		const portRequest = ServiceHost.createPortRequest(contracts);
+
+		targetHost.postMessage(REQUEST_CHANNEL, portRequest, [channel.port1]);
+
+		const communicator = new MessagePortMainRequester(channel.port2);
+		const instance = IpcProxy.create(communicator);
+
+		return instance;
 	}
 
-	provide<T = unknown>(contracts: string[], ...args: unknown[]): Promisify<T> {
-		const instance = this.tryCreate(contracts, ...args) as Promisify<T>;
+	provide<T = unknown>(host: ServiceHost, contracts: string[], ...args: unknown[]): Promisify<T> {
+		const instance = this.tryCreate(host, contracts, ...args) as Promisify<T>;
 
 		if (!instance) {
 			const str = contracts instanceof Array ? contracts.join(';') : contracts;

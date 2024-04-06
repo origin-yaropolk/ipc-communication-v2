@@ -1,12 +1,14 @@
-import { MessageChannelMain, MessagePortMain, webContents } from "electron";
+import { MessageChannelMain, webContents } from "electron";
 import { IIpcInbox, IpcMessage, IpcRequest, REQUEST_CHANNEL } from "../ipc-communication/interfaces";
 import * as IpcP from '../ipc-communication/ipc-protocol';
 import { IpcHelper } from "../ipc-communication/ipc-core";
+import { RemoteInstanceManager } from "./remote-instance-manager";
+import { MessagePortMainInbox } from "../ipc-communication/communicators/message-port-main-inbox";
 
 export class ServiceHost {
     private readonly remoteInstancesRegistry: Map<string, number> = new Map();
 
-    constructor(private inbox: IIpcInbox) {
+    constructor(private inbox: IIpcInbox, private instanceManager: RemoteInstanceManager) {
         this.initInboxing();
     }
 
@@ -38,33 +40,57 @@ export class ServiceHost {
             },
 
             [IpcP.MESSAGE_GET_INSTANCE]: (request: IpcRequest) => {
-                // TODO: find local instance
-                // ****
-                // -----
-
                 const data = request.body as IpcP.InstanceRequest
-
                 const [contract] = data.contracts;
 
-                const remoteInstanceHostId = this.remoteInstancesRegistry.get(contract);
+                const localInstance = this.instanceManager.tryGetInstance(data.contracts);
 
-                if (!remoteInstanceHostId) {
+                if (localInstance) {
+                    const channel = new MessageChannelMain();
+
+                    localInstance.addInbox(new MessagePortMainInbox(channel.port1));
+                    return IpcHelper.response(request, {port: channel.port2});
+                }
+
+                const remoteHostId = this.remoteInstancesRegistry.get(contract);
+
+                if (!remoteHostId) {
                     return IpcHelper.responseFailure(request, `Service with contracts [${contract}] not registered, and remoting not configured. Instance can not be created.`);
                 }
                 
-                const targetHost = webContents.fromId(remoteInstanceHostId);
+                const targetHost = webContents.fromId(remoteHostId);
 
                 if (!targetHost) {
                     return IpcHelper.responseFailure(request, `ServiceHost for contracts [${contract}] does not exists anymore`);
                 }
 
                 const channel = new MessageChannelMain();
-
-                const portRequest = ServiceHost.portRequest(data.contracts);
+                const portRequest = ServiceHost.createPortRequest(data.contracts);
 
                 targetHost.postMessage(REQUEST_CHANNEL, portRequest, [channel.port1]);
-
                 IpcHelper.response(request, {port: channel.port2});
+            },
+
+            [IpcP.MESSAGE_HANDSHAKE]: (request: IpcRequest) => {
+                const remoteHostId = request.webContentsId;
+
+                if (!remoteHostId) {
+                    return IpcHelper.responseFailure(request, 'Hadshake request must provide host id');
+                }
+
+                const remoteHost = webContents.fromId(remoteHostId);
+
+                if (!remoteHost || remoteHost.isDestroyed()) {
+                    return IpcHelper.responseFailure(request, 'Hadshake request recieved from destroyed host');
+                }
+
+                const hostAliveWatchDog = () => {
+                    this.removeRemoteHost(remoteHostId);
+                };
+
+                remoteHost.once('destroyed', hostAliveWatchDog);
+
+                return IpcHelper.response(request, 'Success');
             },
         };
 
@@ -81,7 +107,15 @@ export class ServiceHost {
 		});
     }
 
-    private static portRequest(contracts: string[]): IpcMessage {
+    public getHostId(contracts: string[]): number | undefined {
+        return this.remoteInstancesRegistry.get(contracts[0]);
+    }
+
+    private removeRemoteHost(remoteHostId: number): void {
+
+    }
+
+    static createPortRequest(contracts: string[]): IpcMessage {
         const body: IpcP.PortRequest = {
             contracts: contracts,
         };

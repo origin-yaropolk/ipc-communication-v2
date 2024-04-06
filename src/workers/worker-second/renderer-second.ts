@@ -7,7 +7,7 @@ import { MY_TEST_SERVICE_CONTRACT } from "../../services/contracts";
 import { MessagePortRendererRequester } from "../../ipc-communication/communicators/message-port-renderer-requester";
 import { IpcHelper } from "../../ipc-communication/ipc-core";
 import { IpcProxy } from "../../ipc-communication/proxy/ipc-proxy";
-import { RemoteInstanceManager } from "../../ipc-communication/remote-instance-manager";
+import { RemoteInstanceManager } from "../../ipc-services/remote-instance-manager";
 import { getMessageChannelConstructor } from "../../ipc-communication/message-channel-constructor";
 import { MySecondRendererTestService } from "../../services/my-second-renderer-test-service";
 
