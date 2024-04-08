@@ -1,8 +1,8 @@
 import { MessagePortMain } from 'electron';
 import { Subject } from 'rxjs';
 
-import { IpcMessage as IpcResponse, IpcRequest, IpcMessage } from '../interfaces';
 import { Disposable } from './communicator-base';
+import { IpcMessage, IpcRequest, IpcResponse } from '../ipc-protocol';
 
 export abstract class MessagePortInbox implements Disposable {
 	protected readonly onRequestSubject = new Subject<IpcRequest>();

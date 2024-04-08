@@ -1,13 +1,8 @@
-import { MessageChannelMain } from 'electron';
 import { ServiceProvider } from './service-provider';
-import { IIpcInbox, IpcMessage, IpcRequest, REQUEST_CHANNEL } from '../ipc-communication/interfaces';
-import { IpcHelper } from '../ipc-communication/ipc-core';
-import * as IpcP from '../ipc-communication/ipc-protocol';
 import { RemoteInvokableInstance } from './remote-invokable-instance';
-import { MessagePortMainInbox } from '../ipc-communication/communicators/message-port-main-inbox';
-import { ServiceLocator } from './service-locator';
-import { MessageChannelConstructor } from '../ipc-communication/message-channel-constructor';
-import { IpcCommunicator } from '../ipc-communication/communicators/ipc-communicator';
+import { IIpcInbox } from '../ipc-communication/ipc-inbox/base-ipc-inbox';
+import { IpcProtocol, IpcRequest, PortRequest } from '../ipc-communication/ipc-protocol';
+import { IpcHelper } from '../ipc-communication/ipc-core';
 import { MessagePortRendererInbox } from '../ipc-communication/communicators/message-port-renderer-inbox';
 
 
@@ -18,8 +13,8 @@ export class RemoteInstanceManager {
 
 	constructor(inbox: IIpcInbox) {
         const requestHandlers: { [key: string]: (requet: IpcRequest) => void; } = {
-            [IpcP.MESSAGE_PORT_REQUEST]: (request: IpcRequest) => {
-				const data = request.body as IpcP.PortRequest;
+            [IpcProtocol.MESSAGE_PORT_REQUEST]: (request: IpcRequest) => {
+				const data = request.body as PortRequest;
 				const port = request.port;
 
 				if (!port) {
@@ -39,7 +34,7 @@ export class RemoteInstanceManager {
         };
 
 		inbox.onRequest.subscribe((request: IpcRequest) => {
-			const messageType = IpcHelper.headerValue<string>(request, IpcP.HEADER_MESSAGE_TYPE);
+			const messageType = IpcHelper.headerValue<string>(request, IpcProtocol.HEADER_MESSAGE_TYPE);
 			try {
 				if (messageType && messageType in requestHandlers) {
 					requestHandlers[messageType](request);

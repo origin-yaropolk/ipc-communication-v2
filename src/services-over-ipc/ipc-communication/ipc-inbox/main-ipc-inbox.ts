@@ -1,7 +1,7 @@
-import { Event, ipcMain, IpcMainEvent, MessagePortMain } from 'electron';
+import { Event, ipcMain, IpcMainEvent } from 'electron';
 
-import { IpcMessage, PortResponse, RESPONSE_CHANNEL } from '../interfaces';
 import { BaseIpcInbox } from './base-ipc-inbox';
+import { IpcChannels, IpcMessage, PortResponse } from '../ipc-protocol';
 
 export class MainIpcInbox extends BaseIpcInbox {
 	onMessage(channel: string, handler: (ev: Event, msg: IpcMessage) => void): void {
@@ -15,10 +15,10 @@ export class MainIpcInbox extends BaseIpcInbox {
 				const body = msg.body as PortResponse;
 				if (body.port) {
 					msg.body = {};
-					sender.postMessage(RESPONSE_CHANNEL, msg, [body.port]);
+					sender.postMessage(IpcChannels.RESPONSE_CHANNEL, msg, [body.port]);
 					return;
 				}
-				sender.postMessage(RESPONSE_CHANNEL, msg);
+				sender.postMessage(IpcChannels.RESPONSE_CHANNEL, msg);
 			}
 			else {
 				console.debug('Response will not be send to the destroyed contents');

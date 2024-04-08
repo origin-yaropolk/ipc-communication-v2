@@ -1,6 +1,6 @@
 
 import { ipcMain } from 'electron';
-import { IpcMessage, IpcRequest, PortResponse } from './interfaces.js';
+import { IpcMessage, IpcRequest } from './ipc-protocol';
 
 export const isMainProcess = typeof ipcMain !== 'undefined';
 
@@ -84,10 +84,5 @@ export class IpcHelper {
 		IpcHelper.rethrowIfException(message);
 		return message.body as T;
 	}
-
- /*
-	static get requestContext(): unknown {
-		return ipcRequestContext__;
-	}*/
 }
 

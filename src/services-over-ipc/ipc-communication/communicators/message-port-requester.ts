@@ -1,6 +1,6 @@
 import { MessagePortMain } from 'electron';
-import { IpcMessage, IpcResponse } from '../interfaces';
 import { Disposable, HEADER_INVOKE_ID, Invocation } from './communicator-base';
+import { IpcMessage, IpcResponse } from '../ipc-protocol';
 
 export abstract class MessagePortRequester implements Disposable {
 	private idGenerator = 1;

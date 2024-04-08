@@ -1,4 +1,4 @@
-import { ExposeService, Service, ServiceLifeTime } from "../ipc-services/decorators";
+import { ExposeService, Service, ServiceLifeTime } from "../services-over-ipc/main";
 import { MY_TEST_SERVICE_CONTRACT } from "./contracts";
 
 @ExposeService(ServiceLifeTime.Singleton)

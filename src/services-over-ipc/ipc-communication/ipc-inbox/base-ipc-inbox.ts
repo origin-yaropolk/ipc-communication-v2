@@ -1,7 +1,6 @@
 import { Event, IpcRendererEvent } from 'electron';
-import { Subject } from 'rxjs';
-
-import { IIpcInbox, IpcMessage, IpcRequest, REQUEST_CHANNEL, RESPONSE_CHANNEL } from '../interfaces';
+import { Observable, Subject } from 'rxjs';
+import { IpcChannels, IpcMessage, IpcRequest } from '../ipc-protocol';
 
 interface WithSenderId extends Event {
 	sender: {
@@ -21,6 +20,11 @@ function eventHasPort(ev: Event): ev is WithPort {
 	return (ev as unknown as WithPort).ports != undefined;
 }
 
+export interface IIpcInbox {
+	readonly onRequest: Observable<IpcRequest>;
+	readonly onResponse: Observable<IpcMessage>;
+}
+
 export abstract class BaseIpcInbox implements IIpcInbox {
 	private readonly onRequestSubject = new Subject<IpcRequest>();
 	private readonly onResponseSubject = new Subject<IpcMessage>();
@@ -29,7 +33,7 @@ export abstract class BaseIpcInbox implements IIpcInbox {
 	readonly onResponse = this.onResponseSubject.asObservable();
 
 	constructor() {
-		this.onMessage(REQUEST_CHANNEL, (ev: Event, msg: IpcMessage) => {
+		this.onMessage(IpcChannels.REQUEST_CHANNEL, (ev: Event, msg: IpcMessage) => {
 			const responseChannel = this.makeResponseChannel(ev);
 
 			const request: IpcRequest = {
@@ -42,7 +46,7 @@ export abstract class BaseIpcInbox implements IIpcInbox {
 			this.onRequestSubject.next(request);
 		});
 
-		this.onMessage(RESPONSE_CHANNEL, (ev: Event, msg: IpcMessage) => {
+		this.onMessage(IpcChannels.RESPONSE_CHANNEL, (ev: Event, msg: IpcMessage) => {
 			const [port] = (ev as IpcRendererEvent).ports
 
 			if (port) {

@@ -1,13 +1,12 @@
-import { MessageChannelMain, MessagePortMain, ipcRenderer, webContents } from "electron";
-import { IpcMessage, PortResponse, REQUEST_CHANNEL } from "../ipc-communication/interfaces";
-import { RendererIpcInbox } from "../ipc-communication/ipc-inbox/renderer-ipc-inbox";
-import { IpcProxy, Promisify } from "../ipc-communication/proxy/ipc-proxy";
-import { ReflectionAspect, reflectLocalInstance } from "./reflection";
+import { MessageChannelMain, ipcRenderer, webContents } from "electron";
+
 import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
-import * as IpcP from '../ipc-communication/ipc-protocol';
+import { RendererIpcInbox } from "../ipc-communication/ipc-inbox/renderer-ipc-inbox";
+import { IpcChannels, IpcMessage, IpcProtocol, RegisterInstanceRequest } from "../ipc-communication/ipc-protocol";
 import { ServiceHost } from "./service-host";
 import { MessagePortMainRequester } from "../ipc-communication/communicators/message-port-main-requester";
-import { MainIpcInbox } from "../ipc-communication/ipc-inbox/main-ipc-inbox";
+import { IpcProxy, Promisify } from "../ipc-communication/proxy/ipc-proxy";
+import { ReflectionAspect, reflectLocalInstance } from "./reflection";
 
 export type ServiceFactory = (contracts: string[], ...args: unknown[]) => unknown;
 
@@ -17,7 +16,7 @@ export interface IServiceProvider {
 
 export class ServiceProvider implements IServiceProvider {
 	static readonly instance = new ServiceProvider(ipcRenderer ? new IpcCommunicator(new RendererIpcInbox(), (msg) => {
-        ipcRenderer.send(REQUEST_CHANNEL, msg);
+        ipcRenderer.send(IpcChannels.REQUEST_CHANNEL, msg);
     }) : undefined);
 
 	private readonly factories: ServiceFactory[] = [];
@@ -26,13 +25,13 @@ export class ServiceProvider implements IServiceProvider {
 
 	registerFactory(contracts: string[] | undefined, factory: ServiceFactory): void {
 		if (ipcRenderer && contracts && this.communicator) {
-			const body: IpcP.RegisterInstanceRequest = {
+			const body: RegisterInstanceRequest = {
 				contracts,
 			};
 			
 			const instanceRegister: IpcMessage = {
 				headers: {
-					[IpcP.HEADER_MESSAGE_TYPE]: IpcP.MESSAGE_REGISTER_INSTANCE,
+					[IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_REGISTER_INSTANCE,
 				},
 				body,
 			};
@@ -86,7 +85,7 @@ export class RemoteServiceProvider {
 		const channel = new MessageChannelMain();
 		const portRequest = ServiceHost.createPortRequest(contracts);
 
-		targetHost.postMessage(REQUEST_CHANNEL, portRequest, [channel.port1]);
+		targetHost.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest, [channel.port1]);
 
 		const communicator = new MessagePortMainRequester(channel.port2);
 		const instance = IpcProxy.create(communicator);

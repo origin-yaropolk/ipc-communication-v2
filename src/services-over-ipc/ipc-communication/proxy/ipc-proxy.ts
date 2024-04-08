@@ -1,10 +1,7 @@
-
-import * as Rx from 'rxjs';
-import * as IpcP from '../ipc-protocol';
 import { IpcHelper } from '../ipc-core';
 import { Disposable } from '../communicators/communicator-base';
-import { IpcMessage } from '../interfaces';
 import { MessagePortRequester } from '../communicators/message-port-requester';
+import { InvokeRequest, IpcProtocol, isDispatchedCallback, makeOutboundArgs } from '../ipc-protocol';
 
 const ignoredMethods = ['then', 'reject'];
 const proxyMethods = ['dispose', 'ipcProxyInstanceId', 'ipcProxyCommunicator'];
@@ -34,14 +31,14 @@ interface ProxyFieldContext {
 }
 
 async function remoteInvoke__<T = unknown>(communicator: MessagePortRequester, method: string, messageType: string, args: any[]): Promise<T> {
-	const body: IpcP.InvokeRequest = {
+	const body: InvokeRequest = {
 		method,
-		args: IpcP.makeOutboundArgs(args),
+		args: makeOutboundArgs(args),
 	};
 
 	const response = await communicator.request({
 		headers: {
-			[IpcP.HEADER_MESSAGE_TYPE]: messageType,
+			[IpcProtocol.HEADER_MESSAGE_TYPE]: messageType,
 		},
 		body,
 	});
@@ -50,7 +47,7 @@ async function remoteInvoke__<T = unknown>(communicator: MessagePortRequester, m
 }
 
 export function remoteInvoke<T = unknown>(communicator: MessagePortRequester, method: string, args: any[]): Promise<T> {
-	return remoteInvoke__<T>(communicator, method, IpcP.MESSAGE_INVOKE, args);
+	return remoteInvoke__<T>(communicator, method, IpcProtocol.MESSAGE_INVOKE, args);
 }
 
 /**
@@ -115,7 +112,7 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 	}*/
 
 	private static getProxyTarget(args: unknown[] | undefined): object {
-		const isArgsHasCallback = args?.some(value => IpcP.isDispatchedCallback(value));
+		const isArgsHasCallback = args?.some(value => isDispatchedCallback(value));
 		const callbackProxyTarget = (): void => {};
 		const objectProxyTarget = {};
 		return isArgsHasCallback ? callbackProxyTarget : objectProxyTarget;
@@ -180,7 +177,7 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 	dispose(): void {
 		(this.communicator.request({
 			headers: {
-				[IpcP.HEADER_MESSAGE_TYPE]: IpcP.MESSAGE_DISPOSE,
+				[IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_DISPOSE,
 			},
 			body: {},
 		})).finally(() => {

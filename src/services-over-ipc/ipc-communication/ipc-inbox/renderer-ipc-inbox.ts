@@ -1,7 +1,7 @@
 import { Event, ipcRenderer } from 'electron';
 
-import { IpcMessage, PortRendererResponse, RESPONSE_CHANNEL } from '../interfaces';
 import { BaseIpcInbox } from './base-ipc-inbox';
+import { IpcChannels, IpcMessage, PortRendererResponse } from '../ipc-protocol';
 
 export class RendererIpcInbox extends BaseIpcInbox {
 	onMessage(channel: string, handler: (ev: Event, msg: IpcMessage) => void): void {
@@ -13,11 +13,11 @@ export class RendererIpcInbox extends BaseIpcInbox {
 			const body = msg.body as PortRendererResponse;
 			if (body.port) {
 				msg.body = {};
-				ipcRenderer.postMessage(RESPONSE_CHANNEL, msg, [body.port]);
+				ipcRenderer.postMessage(IpcChannels.RESPONSE_CHANNEL, msg, [body.port]);
 				return;
 			}
 
-			ipcRenderer.postMessage(RESPONSE_CHANNEL, msg);
+			ipcRenderer.postMessage(IpcChannels.RESPONSE_CHANNEL, msg);
 		};
 	}
 }

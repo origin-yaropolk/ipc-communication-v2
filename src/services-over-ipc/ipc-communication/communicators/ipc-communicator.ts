@@ -1,8 +1,8 @@
 import { Subscription } from 'rxjs';
 import { Disposable, HEADER_COMMUNICATOR_ID, HEADER_INVOKE_ID, Invocation, getUID } from './communicator-base';
-import { IIpcInbox, IpcMessage } from '../interfaces';
 import { IpcHelper } from '../ipc-core';
-
+import { IpcMessage } from '../ipc-protocol';
+import { IIpcInbox } from '../ipc-inbox/base-ipc-inbox';
 
 export class IpcCommunicator implements Disposable {
 	private readonly id = getUID();

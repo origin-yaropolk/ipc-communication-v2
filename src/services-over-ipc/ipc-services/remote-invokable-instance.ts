@@ -1,9 +1,8 @@
 import { Disposable, getUID } from '../ipc-communication/communicators/communicator-base';
 import { ReflectionAspect, reflectLocalInstance } from './reflection';
 import { MessagePortInbox } from '../ipc-communication/communicators/message-port-inbox';
-import { IpcRequest } from '../ipc-communication/interfaces';
 import { IpcHelper } from '../ipc-communication/ipc-core';
-import * as IpcP from '../ipc-communication/ipc-protocol';
+import { InvokeRequest, IpcProtocol, IpcRequest, makeInboundArgs, makeOutboundValue } from '../ipc-communication/ipc-protocol';
 
 const instanceUidLength = 8;
 
@@ -38,14 +37,14 @@ export class RemoteInvokableInstance implements Disposable {
     }
 
     private handleRequest(request: IpcRequest): void {
-		if (IpcHelper.hasHeader(request, IpcP.HEADER_MESSAGE_TYPE, IpcP.MESSAGE_INVOKE)) {
+		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_MESSAGE_TYPE, IpcProtocol.MESSAGE_INVOKE)) {
 			return this.handleInvokeRequest(request);
 		}
     }
 
 	private handleInvokeRequest(request: IpcRequest) {
-		const invoke = request.body as IpcP.InvokeRequest;
-		const args = IpcP.makeInboundArgs(invoke.args);
+		const invoke = request.body as InvokeRequest;
+		const args = makeInboundArgs(invoke.args);
 		const method = this.instance[invoke.method];
 
 		if (typeof method === 'undefined') {
@@ -54,7 +53,7 @@ export class RemoteInvokableInstance implements Disposable {
 		}
 
 		const result = (method as (...values: unknown[]) => unknown).apply( this.instance, args);
-		IpcHelper.response(request, IpcP.makeOutboundValue(result));
+		IpcHelper.response(request, makeOutboundValue(result));
 	}
 
 	dispose(): void {

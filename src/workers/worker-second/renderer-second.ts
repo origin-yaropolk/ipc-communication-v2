@@ -1,14 +1,4 @@
-import { ipcRenderer } from "electron";
-import { IpcCommunicator } from "../../ipc-communication/communicators/ipc-communicator";
-import { RendererIpcInbox } from "../../ipc-communication/ipc-inbox/renderer-ipc-inbox";
-import { IpcMessage, PortRendererResponse, REQUEST_CHANNEL } from "../../ipc-communication/interfaces";
-import * as IpcP from '../../ipc-communication/ipc-protocol';
-import { MY_TEST_SERVICE_CONTRACT } from "../../services/contracts";
-import { MessagePortRendererRequester } from "../../ipc-communication/communicators/message-port-renderer-requester";
-import { IpcHelper } from "../../ipc-communication/ipc-core";
-import { IpcProxy } from "../../ipc-communication/proxy/ipc-proxy";
-import { RemoteInstanceManager } from "../../ipc-services/remote-instance-manager";
-import { getMessageChannelConstructor } from "../../ipc-communication/message-channel-constructor";
+import { RemoteInstanceManager, RendererIpcInbox } from "../../services-over-ipc/renderer";
 import { MySecondRendererTestService } from "../../services/my-second-renderer-test-service";
 
 function startServices(...services: unknown[]): void {}

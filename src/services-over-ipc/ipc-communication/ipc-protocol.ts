@@ -1,10 +1,31 @@
-import { ipcMain } from 'electron';
+import { MessagePortMain, ipcMain } from 'electron';
 
 // import { serviceHost } from './ipc-core';
 
 const isMainProcess = typeof ipcMain !== 'undefined';
 
 export interface InstanceBaseRequest {
+}
+
+export interface IpcMessage {
+	headers: { [key: string]: any; };
+	body: unknown;
+}
+
+export type IpcResponse = IpcMessage;
+
+export interface IpcRequest extends IpcMessage {
+	responseChannel(value: IpcMessage): void;
+	webContentsId?: number;
+	port?: MessagePort;
+}
+
+export interface PortResponse {
+	port: MessagePortMain
+}
+
+export interface PortRendererResponse {
+	port: MessagePort
 }
 
 export interface InvokeRequest extends InstanceBaseRequest {
@@ -35,22 +56,28 @@ export interface DispatchedCallback {
 	callbackId: string;
 }
 
-export const HEADER_MESSAGE_TYPE = 'message-type';
+export enum IpcProtocol {
+	HEADER_MESSAGE_TYPE = 'message-type',
 
-export const MESSAGE_HANDSHAKE = 'host:handshake';
-export const MESSAGE_REGISTER_INSTANCE = 'host:register-instance';
-export const MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance';
-export const MESSAGE_GET_INSTANCE = 'host:get-instance';
-export const MESSAGE_PORT_REQUEST = 'host:port-request';
+	MESSAGE_HANDSHAKE = 'host:handshake',
+	MESSAGE_REGISTER_INSTANCE = 'host:register-instance',
+	MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance',
+	MESSAGE_GET_INSTANCE = 'host:get-instance',
+	MESSAGE_PORT_REQUEST = 'host:port-request',
+	MESSAGE_INVOKE = 'instance:invoke',
+	MESSAGE_DISPOSE = 'instance:dispose',
+	MESSAGE_EVENT_SUBSCRIBE = 'instance:event_subscribe',
+	MESSAGE_EVENT_UNSUBSCRIBE = 'instance:event_unsubscribe',
+	MESSAGE_EVENT_NEXT = 'instance:event_next',
+	MESSAGE_REFLECT = 'instance:reflect',
+	MESSAGE_IS_ALIVE = 'instance:is-alive',
+	MESSAGE_TRANSFER_PORT = 'instance:transfer-port'
+}
 
-export const MESSAGE_INVOKE = 'instance:invoke';
-export const MESSAGE_DISPOSE = 'instance:dispose';
-export const MESSAGE_EVENT_SUBSCRIBE = 'instance:event_subscribe';
-export const MESSAGE_EVENT_UNSUBSCRIBE = 'instance:event_unsubscribe';
-export const MESSAGE_EVENT_NEXT = 'instance:event_next';
-export const MESSAGE_REFLECT = 'instance:reflect';
-export const MESSAGE_IS_ALIVE = 'instance:is-alive';
-export const MESSAGE_TRANSFER_PORT = 'instance:transfer-port';
+export enum IpcChannels {
+	REQUEST_CHANNEL = 'tvd-ipc:request',
+	RESPONSE_CHANNEL = 'tvd-ipc:response'
+}
 
 /**
  * Generic check that value is not just 'data',

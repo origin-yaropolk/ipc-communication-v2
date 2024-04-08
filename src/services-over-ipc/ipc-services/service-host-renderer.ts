@@ -1,9 +1,8 @@
-import { MessageChannelMain, webContents } from "electron";
-import { IIpcInbox, IpcMessage, IpcRequest, REQUEST_CHANNEL } from "../ipc-communication/interfaces";
-import * as IpcP from '../ipc-communication/ipc-protocol';
-import { IpcHelper } from "../ipc-communication/ipc-core";
-import { RemoteInstanceManager } from "./remote-instance-manager";
+import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
 import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
+import { RemoteInstanceManager } from "./remote-instance-manager";
+import { IpcProtocol, IpcRequest } from "../ipc-communication/ipc-protocol";
+import { IpcHelper } from "../ipc-communication/ipc-core";
 
 export class ServiceHostRenderer {
 
@@ -18,7 +17,7 @@ export class ServiceHostRenderer {
         };
 
         this.inbox.onRequest.subscribe((request: IpcRequest) => {
-			const messageType = IpcHelper.headerValue<string>(request, IpcP.HEADER_MESSAGE_TYPE);
+			const messageType = IpcHelper.headerValue<string>(request, IpcProtocol.HEADER_MESSAGE_TYPE);
 			try {
 				if (messageType && messageType in requestHandlers) {
 					requestHandlers[messageType](request);
