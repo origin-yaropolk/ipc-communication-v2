@@ -59,7 +59,6 @@ export interface DispatchedCallback {
 export enum IpcProtocol {
 	HEADER_MESSAGE_TYPE = 'message-type',
 
-	MESSAGE_HANDSHAKE = 'host:handshake',
 	MESSAGE_REGISTER_INSTANCE = 'host:register-instance',
 	MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance',
 	MESSAGE_GET_INSTANCE = 'host:get-instance',

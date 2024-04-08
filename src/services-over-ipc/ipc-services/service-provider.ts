@@ -2,11 +2,12 @@ import { MessageChannelMain, ipcRenderer, webContents } from "electron";
 
 import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
 import { RendererIpcInbox } from "../ipc-communication/ipc-inbox/renderer-ipc-inbox";
-import { IpcChannels, IpcMessage, IpcProtocol, RegisterInstanceRequest } from "../ipc-communication/ipc-protocol";
+import { IpcChannels } from "../ipc-communication/ipc-protocol";
 import { ServiceHost } from "./service-host";
 import { MessagePortMainRequester } from "../ipc-communication/communicators/message-port-main-requester";
 import { IpcProxy, Promisify } from "../ipc-communication/proxy/ipc-proxy";
 import { ReflectionAspect, reflectLocalInstance } from "./reflection";
+import { portRequest, registerInstanceRequest } from "../ipc-communication/ipc-messages";
 
 export type ServiceFactory = (contracts: string[], ...args: unknown[]) => unknown;
 
@@ -24,19 +25,8 @@ export class ServiceProvider implements IServiceProvider {
 	constructor(private communicator?: IpcCommunicator) {}
 
 	registerFactory(contracts: string[] | undefined, factory: ServiceFactory): void {
-		if (ipcRenderer && contracts && this.communicator) {
-			const body: RegisterInstanceRequest = {
-				contracts,
-			};
-			
-			const instanceRegister: IpcMessage = {
-				headers: {
-					[IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_REGISTER_INSTANCE,
-				},
-				body,
-			};
-
-			this.communicator.send(instanceRegister);
+		if (this.communicator && contracts) {
+			this.communicator.send(registerInstanceRequest(contracts));
 		}
 
 		this.factories.push(factory);
@@ -69,7 +59,7 @@ export class ServiceProvider implements IServiceProvider {
 export class RemoteServiceProvider {
 	static readonly instance = new RemoteServiceProvider();
 
-	private tryCreate(host: ServiceHost, contracts: string[], ...args: unknown[]): unknown | undefined {
+	private tryCreate(contracts: string[], ...args: unknown[]): unknown | undefined {
 		const targetId = host.getHostId(contracts);
 
 		if (!targetId) {
@@ -83,9 +73,8 @@ export class RemoteServiceProvider {
 		}
 
 		const channel = new MessageChannelMain();
-		const portRequest = ServiceHost.createPortRequest(contracts);
 
-		targetHost.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest, [channel.port1]);
+		targetHost.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest(contracts), [channel.port1]);
 
 		const communicator = new MessagePortMainRequester(channel.port2);
 		const instance = IpcProxy.create(communicator);
@@ -93,7 +82,7 @@ export class RemoteServiceProvider {
 		return instance;
 	}
 
-	provide<T = unknown>(host: ServiceHost, contracts: string[], ...args: unknown[]): Promisify<T> {
+	provide<T = unknown>(contracts: string[], ...args: unknown[]): Promisify<T> {
 		const instance = this.tryCreate(host, contracts, ...args) as Promisify<T>;
 
 		if (!instance) {

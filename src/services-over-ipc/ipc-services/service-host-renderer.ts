@@ -1,19 +1,36 @@
-import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
-import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
-import { RemoteInstanceManager } from "./remote-instance-manager";
-import { IpcProtocol, IpcRequest } from "../ipc-communication/ipc-protocol";
+import { MessagePortRendererInbox } from "../ipc-communication/communicators/message-port-renderer-inbox";
 import { IpcHelper } from "../ipc-communication/ipc-core";
+import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
+import { IpcProtocol, IpcRequest, PortRequest } from "../ipc-communication/ipc-protocol";
+import { RemoteInstanceManager } from "./remote-instance-manager";
 
 export class ServiceHostRenderer {
+    private readonly instanceManager = new RemoteInstanceManager();
 
-    constructor(private inbox: IIpcInbox, private communicator: IpcCommunicator, private instanceManager: RemoteInstanceManager) {
+    constructor(private inbox: IIpcInbox) {
         this.initInboxing();
-        this.performHandshake();
     }
 
     private initInboxing(): void {
         const requestHandlers: { [key: string]: (requet: IpcRequest) => void; } = {
+            [IpcProtocol.MESSAGE_PORT_REQUEST]: (request: IpcRequest) => {
+                const data = request.body as PortRequest;
+				const port = request.port;
 
+				if (!port) {
+					return IpcHelper.responseFailure(request, `Request does not contains port`);
+				}
+
+				const instance = this.instanceManager.tryGetInstance(data.contracts);
+
+				if (!instance) {
+					return IpcHelper.responseFailure(request, `No service provider found for contracts [${data.contracts[0]}]`);
+				}
+
+				instance.addInbox(new MessagePortRendererInbox(port));
+
+				IpcHelper.response(request, 'Port successfully added');
+            }
         };
 
         this.inbox.onRequest.subscribe((request: IpcRequest) => {
@@ -27,9 +44,5 @@ export class ServiceHostRenderer {
 				IpcHelper.responseFailure(request, error);
 			}
 		});
-    }
-
-    private performHandshake(): void {
-
     }
 }

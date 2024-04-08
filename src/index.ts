@@ -1,25 +1,24 @@
 import { app, BrowserWindow } from "electron";
 import { MyTestService } from "./services/my-test-service";
 
-import { MainIpcInbox, RemoteInstanceManager, RemoteServiceProvider, ServiceHost } from "./services-over-ipc/main";
-
 import { MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT } from "./services/contracts";
+import { ServiceLocatorOverIpc } from "./services-over-ipc/main";
+
+import { RemoteServiceProvider } from "./services-over-ipc/ipc-services/service-provider";
 
 function startServices(...services: unknown[]): void {
 }
 
 async function startApp(): Promise<void> {
+    ServiceLocatorOverIpc.initialize();
+    
     startServices(MyTestService);
-
-    const mainInbox = new MainIpcInbox();
-    const instanceManager = new RemoteInstanceManager(mainInbox);
-    const serviceHost = new ServiceHost(mainInbox, instanceManager);
 
     setTimeout(() => { createWindow("app/worker-first/index.html") }, 3000);
     createWindow("app/worker-second/index.html");
 
     setTimeout(async () => {
-        const secondTestService = RemoteServiceProvider.instance.provide<IMySecondRendererTestService>(serviceHost, [MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT]);
+        const secondTestService = RemoteServiceProvider.instance.provide<IMySecondRendererTestService>([MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT]);
 
         console.log(await secondTestService.greet());
         console.log(await secondTestService.mul(6, 10));

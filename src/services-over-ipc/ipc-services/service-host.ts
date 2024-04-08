@@ -1,14 +1,17 @@
-import { MessageChannelMain, webContents } from "electron";
+import { MessageChannelMain, WebContents, webContents } from "electron";
 import { RemoteInstanceManager } from "./remote-instance-manager";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
-import { InstanceRequest, IpcChannels, IpcMessage, IpcProtocol, IpcRequest, PortRequest, RegisterInstanceRequest, UnregisterInstanceRequest } from "../ipc-communication/ipc-protocol";
+import { InstanceRequest, IpcChannels, IpcProtocol, IpcRequest, RegisterInstanceRequest, UnregisterInstanceRequest } from "../ipc-communication/ipc-protocol";
 import { IpcHelper } from "../ipc-communication/ipc-core";
 import { MessagePortMainInbox } from "../ipc-communication/communicators/message-port-main-inbox";
+import { portRequest } from '../ipc-communication/ipc-messages';
 
 export class ServiceHost {
+    private readonly knownHosts: Set<number> = new Set();
     private readonly remoteInstancesRegistry: Map<string, number> = new Map();
+    private readonly instanceManager = new RemoteInstanceManager();
 
-    constructor(private inbox: IIpcInbox, private instanceManager: RemoteInstanceManager) {
+    constructor(private inbox: IIpcInbox,) {
         this.initInboxing();
     }
 
@@ -22,9 +25,19 @@ export class ServiceHost {
                 const data = request.body as RegisterInstanceRequest
                 const id = request.webContentsId;
 
+                const remoteHost = webContents.fromId(id);
+
+                if (!remoteHost || remoteHost.isDestroyed()) {
+                    return IpcHelper.responseFailure(request, `ServiceHost for contracts [${data.contracts[0]}] does not exists anymore`);
+                }
+
                 data.contracts.forEach(contract => {
                     this.remoteInstancesRegistry.set(contract, id);
                 });
+
+                if (!this.knownHosts.has(id)) {
+                    this.setupHostAliveWatchdog(remoteHost);
+                }
 
                 IpcHelper.response(request, 'Successful registered');
             },
@@ -42,6 +55,10 @@ export class ServiceHost {
             [IpcProtocol.MESSAGE_GET_INSTANCE]: (request: IpcRequest) => {
                 const data = request.body as InstanceRequest
                 const [contract] = data.contracts;
+
+                if (request.webContentsId && !webContents.fromId(request.webContentsId)?.isDestroyed() && !this.knownHosts.has(request.webContentsId)) {
+                    this.knownHosts.add(request.webContentsId);
+                }
 
                 const localInstance = this.instanceManager.tryGetInstance(data.contracts);
 
@@ -65,33 +82,10 @@ export class ServiceHost {
                 }
 
                 const channel = new MessageChannelMain();
-                const portRequest = ServiceHost.createPortRequest(data.contracts);
-
-                targetHost.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest, [channel.port1]);
+               
+                targetHost.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest(data.contracts), [channel.port1]);
                 IpcHelper.response(request, {port: channel.port2});
-            },
-
-            [IpcProtocol.MESSAGE_HANDSHAKE]: (request: IpcRequest) => {
-                const remoteHostId = request.webContentsId;
-
-                if (!remoteHostId) {
-                    return IpcHelper.responseFailure(request, 'Hadshake request must provide host id');
-                }
-
-                const remoteHost = webContents.fromId(remoteHostId);
-
-                if (!remoteHost || remoteHost.isDestroyed()) {
-                    return IpcHelper.responseFailure(request, 'Hadshake request recieved from destroyed host');
-                }
-
-                const hostAliveWatchDog = () => {
-                    this.removeRemoteHost(remoteHostId);
-                };
-
-                remoteHost.once('destroyed', hostAliveWatchDog);
-
-                return IpcHelper.response(request, 'Success');
-            },
+            }
         };
 
         this.inbox.onRequest.subscribe((request: IpcRequest) => {
@@ -111,22 +105,25 @@ export class ServiceHost {
         return this.remoteInstancesRegistry.get(contracts[0]);
     }
 
-    private removeRemoteHost(remoteHostId: number): void {
-
+    private setupHostAliveWatchdog(host: WebContents): void {
+        host.once('destroyed', () => {
+            this.removeRemoteHost(host.id);
+        });
     }
 
-    static createPortRequest(contracts: string[]): IpcMessage {
-        const body: PortRequest = {
-            contracts: contracts,
-        };
-        
-        const portRequest: IpcMessage = {
-            headers: {
-                [IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_PORT_REQUEST,
-            },
-            body
-        };
+    private removeRemoteHost(remoteHostId: number): void {
+        const contractsForDelete: string[] = [];
 
-        return portRequest;
+        this.remoteInstancesRegistry.forEach((value, key) => {
+            if (value === remoteHostId) {
+                contractsForDelete.push(key);
+            }
+        });
+
+        contractsForDelete.forEach(contract => {
+            this.remoteInstancesRegistry.delete(contract);
+        });
+        
+        this.knownHosts.delete(remoteHostId);
     }
 }
