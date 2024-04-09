@@ -5,14 +5,26 @@ import { InstanceRequest, IpcChannels, IpcProtocol, IpcRequest, RegisterInstance
 import { IpcHelper } from "../ipc-communication/ipc-core";
 import { MessagePortMainInbox } from "../ipc-communication/communicators/message-port-main-inbox";
 import { portRequest } from '../ipc-communication/ipc-messages';
+import { ServiceProvider } from "./service-provider";
 
 export class ServiceHost {
     private readonly knownHosts: Set<number> = new Set();
     private readonly remoteInstancesRegistry: Map<string, number> = new Map();
-    private readonly instanceManager = new RemoteInstanceManager();
+    private readonly serviceProvider;
+    private readonly instanceManager;
 
-    constructor(private inbox: IIpcInbox,) {
+    constructor(private inbox: IIpcInbox) {
         this.initInboxing();
+
+        this.serviceProvider = new ServiceProvider(this.inbox, (contract) => {
+            return this.remoteInstancesRegistry.get(contract);
+        });
+
+        this.instanceManager = new RemoteInstanceManager(this.serviceProvider);
+    }
+
+    get provider(): ServiceProvider {
+        return this.serviceProvider;
     }
 
     private initInboxing(): void {
@@ -99,10 +111,6 @@ export class ServiceHost {
 				IpcHelper.responseFailure(request, error);
 			}
 		});
-    }
-
-    public getHostId(contracts: string[]): number | undefined {
-        return this.remoteInstancesRegistry.get(contracts[0]);
     }
 
     private setupHostAliveWatchdog(host: WebContents): void {

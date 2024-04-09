@@ -1,4 +1,4 @@
-import { IpcMessage, IpcProtocol, PortRequest, RegisterInstanceRequest } from "./ipc-protocol";
+import { InstanceRequest, IpcMessage, IpcProtocol, PortRequest, RegisterInstanceRequest } from "./ipc-protocol";
 
 export function registerInstanceRequest(contracts: string[]): IpcMessage {
     const body: RegisterInstanceRequest = { contracts };
@@ -24,4 +24,17 @@ export function portRequest(contracts: string[]): IpcMessage {
     };
 
     return message
+}
+
+export function instanceRequest(contracts: string[]): IpcMessage {
+    const body: InstanceRequest = { contracts };
+    
+    const message: IpcMessage = {
+        headers: {
+            [IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_GET_INSTANCE,
+        },
+        body
+    };
+
+    return message;
 }

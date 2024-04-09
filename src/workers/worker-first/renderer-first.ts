@@ -1,5 +1,3 @@
-import { RemoteInstanceManager, RendererIpcInbox } from "../../services-over-ipc/renderer";
-
 function startServices(...services: unknown[]): void {}
 
 /*
@@ -40,7 +38,6 @@ async function getService(): Promise<Promisify<IMyTestService>> {
 */
 
 async function startRenderer(): Promise<void> {
-    const rim = new RemoteInstanceManager(new RendererIpcInbox());
 }
 
 startRenderer();

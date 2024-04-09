@@ -30,7 +30,7 @@ export function ExposeService(lifetime: ServiceLifeTime) {
 		};
 
 		if (lifetime === ServiceLifeTime.Transient) {
-			ServiceProvider.instance.registerFactory(contracts, (requestedContracts: string[], ...args: unknown[]) => {
+			ServiceProvider.registerFactory(contracts, (requestedContracts: string[], ...args: unknown[]) => {
 				if (!hasAllContracts(requestedContracts)) {
 					return null;
 				}
@@ -57,7 +57,7 @@ export function ExposeService(lifetime: ServiceLifeTime) {
 					return instance;
 				};
 			})();
-			ServiceProvider.instance.registerFactory(contracts, singletonFactory);
+			ServiceProvider.registerFactory(contracts, singletonFactory);
 		}
 	};
 }

@@ -87,8 +87,8 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 
 	readonly communicator: MessagePortRequester;
 
-	static create<T>(channel: MessagePortRequester): Promisify<T> {
-		const proxyHandler = new IpcProxy(channel);
+	static create<T>(requester: MessagePortRequester): Promisify<T> {
+		const proxyHandler = new IpcProxy(requester);
         const proxy = new Proxy({}, proxyHandler) as Promisify<T>;
         return proxy;
 	}

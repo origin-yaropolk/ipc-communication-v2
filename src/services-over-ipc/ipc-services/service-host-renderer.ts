@@ -3,12 +3,21 @@ import { IpcHelper } from "../ipc-communication/ipc-core";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
 import { IpcProtocol, IpcRequest, PortRequest } from "../ipc-communication/ipc-protocol";
 import { RemoteInstanceManager } from "./remote-instance-manager";
+import { ServiceProvider } from "./service-provider";
 
 export class ServiceHostRenderer {
-    private readonly instanceManager = new RemoteInstanceManager();
+	private readonly serviceProvider;
+	private readonly instanceManager;
 
     constructor(private inbox: IIpcInbox) {
         this.initInboxing();
+
+		this.serviceProvider = new ServiceProvider(this.inbox);
+		this.instanceManager = new RemoteInstanceManager(this.serviceProvider);
+    }
+
+    get provider(): ServiceProvider {
+        return this.serviceProvider;
     }
 
     private initInboxing(): void {

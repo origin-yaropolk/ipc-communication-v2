@@ -1,6 +1,5 @@
 import { MessagePortMain, ipcMain } from 'electron';
 
-// import { serviceHost } from './ipc-core';
 
 const isMainProcess = typeof ipcMain !== 'undefined';
 

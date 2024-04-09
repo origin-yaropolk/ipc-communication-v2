@@ -1,41 +1,56 @@
 import { MessageChannelMain, ipcRenderer, webContents } from "electron";
 
 import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
-import { RendererIpcInbox } from "../ipc-communication/ipc-inbox/renderer-ipc-inbox";
-import { IpcChannels } from "../ipc-communication/ipc-protocol";
-import { ServiceHost } from "./service-host";
+import { IpcChannels, IpcMessage, PortRendererResponse } from "../ipc-communication/ipc-protocol";
 import { MessagePortMainRequester } from "../ipc-communication/communicators/message-port-main-requester";
 import { IpcProxy, Promisify } from "../ipc-communication/proxy/ipc-proxy";
 import { ReflectionAspect, reflectLocalInstance } from "./reflection";
-import { portRequest, registerInstanceRequest } from "../ipc-communication/ipc-messages";
+import { instanceRequest, portRequest, registerInstanceRequest } from "../ipc-communication/ipc-messages";
+import { MessagePortRequester } from "../ipc-communication/communicators/message-port-requester";
+import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
+import { MessagePortRendererRequester } from "../ipc-communication/communicators/message-port-renderer-requester";
+
+const isMainProcess = ipcRenderer === undefined;
+
+function extractPort(body: unknown): MessagePort | undefined {
+    return (body as PortRendererResponse).port;
+}
 
 export type ServiceFactory = (contracts: string[], ...args: unknown[]) => unknown;
 
-export interface IServiceProvider {
-	provide(contracts: string[] | string, ...args: unknown[]): unknown;
-}
+export class ServiceProvider {
+	private static readonly factories: ServiceFactory[] = [];
+	private static communicator: IpcCommunicator | null;
+	private static factoryRegistractionQueue: (()=>void)[] = [];
+	private readonly proxies: Map<string, unknown> = new Map();
 
-export class ServiceProvider implements IServiceProvider {
-	static readonly instance = new ServiceProvider(ipcRenderer ? new IpcCommunicator(new RendererIpcInbox(), (msg) => {
-        ipcRenderer.send(IpcChannels.REQUEST_CHANNEL, msg);
-    }) : undefined);
+	constructor(private inbox: IIpcInbox, private proxyHostGetter?: (contract: string) => number | undefined) {
+		if (!isMainProcess) {
+			this.communicator();
+			ServiceProvider.factoryRegistractionQueue.forEach(registerAction => registerAction());
+			ServiceProvider.factoryRegistractionQueue = [];
+		}
+	}
 
-	private readonly factories: ServiceFactory[] = [];
+	static registerFactory(contracts: string[] | undefined, factory: ServiceFactory): void {
+		if (!isMainProcess && contracts) {
+			const registerAction = () => { ServiceProvider.communicator?.send(registerInstanceRequest(contracts)); };
 
-	constructor(private communicator?: IpcCommunicator) {}
-
-	registerFactory(contracts: string[] | undefined, factory: ServiceFactory): void {
-		if (this.communicator && contracts) {
-			this.communicator.send(registerInstanceRequest(contracts));
+			if (ServiceProvider.communicator) {
+				registerAction();
+			}
+			else {
+				ServiceProvider.factoryRegistractionQueue.push(registerAction);
+			}
 		}
 
-		this.factories.push(factory);
+		ServiceProvider.factories.push(factory);
 	}
 
 	private tryCreate(contracts: string[] | string, ...args: unknown[]): unknown | undefined {
 		const requestedContracts = contracts instanceof Array ? contracts : [contracts];
 
-		for (const factory of this.factories) {
+		for (const factory of ServiceProvider.factories) {
 			const instance = factory(requestedContracts, ...args);
 			if (instance) {
 				return instance;
@@ -50,47 +65,70 @@ export class ServiceProvider implements IServiceProvider {
 
 		if (!instance) {
 			const str = contracts instanceof Array ? contracts.join(';') : contracts;
-			throw new Error(`Local service with contracts [${ str }] not registered, and remoting not configured. Instance can not be created.`);
+			throw new Error(`Local service with contracts [${ str }] not registered. Instance can not be created.`);
 		}
 		return instance;
 	}
-}
 
-export class RemoteServiceProvider {
-	static readonly instance = new RemoteServiceProvider();
+	async provideProxy<T = unknown>(contracts: string[], ...args: unknown[]): Promise<Promisify<T>> {
+		let proxy = this.proxies.get(contracts[0]);
 
-	private tryCreate(contracts: string[], ...args: unknown[]): unknown | undefined {
-		const targetId = host.getHostId(contracts);
+        if (!proxy) {
+			const requester = await this.createRequester(contracts);
+            proxy = IpcProxy.create(requester);
+			contracts.forEach(contract => {
+				this.proxies.set(contract, proxy);
+			});
+        }
 
-		if (!targetId) {
-			return;
-		}
-
-		const targetHost = webContents.fromId(targetId);
-
-		if (!targetHost) {
-			return;
-		}
-
-		const channel = new MessageChannelMain();
-
-		targetHost.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest(contracts), [channel.port1]);
-
-		const communicator = new MessagePortMainRequester(channel.port2);
-		const instance = IpcProxy.create(communicator);
-
-		return instance;
+		return Promise.resolve(proxy as Promisify<T>);
 	}
 
-	provide<T = unknown>(contracts: string[], ...args: unknown[]): Promisify<T> {
-		const instance = this.tryCreate(host, contracts, ...args) as Promisify<T>;
+	private async createRequester(contracts: string[]): Promise<MessagePortRequester> {
+		if (isMainProcess) {
+			if (!this.proxyHostGetter) {
+				throw new Error('Proxy host getter not provided');
+			}
 
-		if (!instance) {
-			const str = contracts instanceof Array ? contracts.join(';') : contracts;
-			throw new Error(`Local service with contracts [${ str }] not registered, and remoting not configured. Instance can not be created.`);
+			const hostId = this.proxyHostGetter(contracts[0]);
+
+			if (!hostId) {
+				throw new Error(`Remote instance with contacts [${contracts[0]}] not registerd. Instance can not be created.`);
+			}
+
+			const host = webContents.fromId(hostId);
+
+			if (!host || host.isDestroyed()) {
+				throw new Error(`Host for remote instance with contacts [${contracts[0]}] was destroyed. Instance can not be created.`);
+			}
+
+			const channel = new MessageChannelMain();
+			host.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest(contracts), [channel.port1]);
+
+			return Promise.resolve(new MessagePortMainRequester(channel.port2));
 		}
 
-		return instance;
+		const port = extractPort(await this.communicator().send(instanceRequest(contracts)));
+
+		if (!port) {
+			throw new Error(`Remote host didn't provide port for instance with [${contracts[0]}]. Instance can not be created.`);
+		}
+
+		return Promise.resolve(new MessagePortRendererRequester(port));
+	}
+
+	private communicator(): IpcCommunicator {
+		if (isMainProcess) {
+			throw new Error('Creating ServiceProvider communicator in main process');
+		}
+
+		const toMainSender = (message: IpcMessage) => { ipcRenderer.send(IpcChannels.REQUEST_CHANNEL, message) };
+
+		if (!ServiceProvider.communicator) {
+			ServiceProvider.communicator = new IpcCommunicator(this.inbox, toMainSender);
+		}
+
+		return ServiceProvider.communicator;
 	}
 }
 
@@ -108,5 +146,5 @@ export function exposeSingleton(instance: unknown): void {
 		return hasAllContracts ? instance : undefined;
 	};
 
-	ServiceProvider.instance.registerFactory(contracts, factory);
+	ServiceProvider.registerFactory(contracts, factory);
 }

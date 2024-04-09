@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 
 import { Worker } from './worker';
 
-
 const documentRoot = document.getElementById('root');
 
 if (documentRoot) {

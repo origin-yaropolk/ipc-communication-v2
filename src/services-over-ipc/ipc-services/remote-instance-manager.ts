@@ -6,12 +6,14 @@ export let ignoreIpcServiceProviderRequest__ = false;
 export class RemoteInstanceManager {
 	private instances: RemoteInvokableInstance[] = [];
 
+	constructor(private provider: ServiceProvider) {}
+
 	tryGetInstance(contracts: string[]): RemoteInvokableInstance | undefined {
 		let instance = this.instances.find(inst => inst.id.includes(contracts[0]));
 
 		if (!instance) {
 			try {
-				const newInstance = ServiceProvider.instance.provide<Record<string, unknown>>(contracts);
+				const newInstance = this.provider.provide<Record<string, unknown>>(contracts);
 				instance = this.addInstance(newInstance);
 			}
 			catch (err) {

@@ -1,10 +1,9 @@
 import { app, BrowserWindow } from "electron";
 import { MyTestService } from "./services/my-test-service";
 
-import { MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT } from "./services/contracts";
+import { MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT, MY_TEST_SERVICE_CONTRACT } from "./services/contracts";
 import { ServiceLocatorOverIpc } from "./services-over-ipc/main";
 
-import { RemoteServiceProvider } from "./services-over-ipc/ipc-services/service-provider";
 
 function startServices(...services: unknown[]): void {
 }
@@ -14,15 +13,19 @@ async function startApp(): Promise<void> {
     
     startServices(MyTestService);
 
-    setTimeout(() => { createWindow("app/worker-first/index.html") }, 3000);
+    //createWindow("app/worker-first/index.html");
     createWindow("app/worker-second/index.html");
 
     setTimeout(async () => {
-        const secondTestService = RemoteServiceProvider.instance.provide<IMySecondRendererTestService>([MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT]);
+        const serv1 = ServiceLocatorOverIpc.provider().provide<IMyTestService>([MY_TEST_SERVICE_CONTRACT]);
+        const serv2 = await ServiceLocatorOverIpc.provider().provideProxy<IMySecondRendererTestService>([MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT]);
 
-        console.log(await secondTestService.greet());
-        console.log(await secondTestService.mul(6, 10));
-    }, 3000);
+        console.log(serv1.greet());
+        console.log(serv1.add(6, 10));
+
+        console.log(await serv2.greet());
+        console.log(await serv2.mul(6, 10));
+    }, 2000);
     //setTimeout(() => { createWindow("app/worker-client/index.html") }, 3000);
 }
 
@@ -46,6 +49,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('ready', () => {
-    startApp();
+    setTimeout(async () => {
+        startApp();
+    }, 1000);
 })
 

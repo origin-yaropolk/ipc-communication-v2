@@ -1,5 +1,5 @@
-async function startRenderer(): Promise<void> {
+//async function startRenderer(): Promise<void> {
 
-}
+//}
 
-startRenderer();
+//startRenderer()
