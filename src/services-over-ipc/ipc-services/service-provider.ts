@@ -108,7 +108,8 @@ export class ServiceProvider {
 			return Promise.resolve(new MessagePortMainRequester(channel.port2));
 		}
 
-		const port = extractPort(await this.communicator().send(instanceRequest(contracts)));
+		const response = await this.communicator().send(instanceRequest(contracts));
+		const port = extractPort(response.body);
 
 		if (!port) {
 			throw new Error(`Remote host didn't provide port for instance with [${contracts[0]}]. Instance can not be created.`);

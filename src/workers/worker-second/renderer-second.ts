@@ -6,7 +6,6 @@ function startServices(...services: unknown[]): void {}
 async function startRenderer(): Promise<void> {
     startServices(MySecondRendererTestService);
     ServiceLocatorOverIpc.initialize();
-    console.log('startRenderer');
 }
 
 startRenderer();
