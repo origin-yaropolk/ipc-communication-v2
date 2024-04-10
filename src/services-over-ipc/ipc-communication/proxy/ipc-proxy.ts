@@ -1,7 +1,9 @@
 import { IpcHelper } from '../ipc-core';
 import { Disposable } from '../communicators/communicator-base';
 import { MessagePortRequester } from '../communicators/message-port-requester';
-import { InvokeRequest, IpcProtocol, isDispatchedCallback, makeOutboundArgs } from '../ipc-protocol';
+import { InvokeRequest, IpcProtocol, isDispatchedCallback, makeInboundArgs, makeOutboundArgs } from '../ipc-protocol';
+import { Subject, Unsubscribable } from 'rxjs';
+import { MessagePortInbox } from '../communicators/message-port-inbox';
 
 const ignoredMethods = ['then', 'reject'];
 const proxyMethods = ['dispose', 'ipcProxyInstanceId', 'ipcProxyCommunicator'];
@@ -21,13 +23,19 @@ function isProxyMethod(name: string): boolean {
 }
 
 interface IpcProxyState {
-	communicator: MessagePortRequester;
+	requester: MessagePortRequester;
+	subscriptionEmitters: Record<string, (...args: unknown[]) => void>;
 }
 
 interface ProxyFieldContext {
 	proxy: IpcProxyState;
 	fieldData: Record<string, unknown>; // this property dedicated to store data per field. Each property keep its data into this field context.field
 	propKey: string;
+}
+
+class ProxyEventSubscription {
+	readonly source = new Subject<unknown>();
+	readonly observable = this.source.asObservable();
 }
 
 async function remoteInvoke__<T = unknown>(communicator: MessagePortRequester, method: string, messageType: string, args: any[]): Promise<T> {
@@ -64,72 +72,89 @@ export function remoteInvoke<T = unknown>(communicator: MessagePortRequester, me
  *
  */
 class IpcPropertyProxy implements ProxyHandler<ProxyFieldContext> {
+	private static makeSubscribe(context: ProxyFieldContext): (...args: unknown[]) => Unsubscribable {
+		if (!(context.propKey in context.fieldData)) {
+			Object.defineProperty(context.fieldData, context.propKey, {
+				writable: false,
+				configurable: true,
+				value: new ProxyEventSubscription(),
+			});
+		}
+
+		return (...args: unknown[]): Unsubscribable => {
+			type GenericSubscribeable = { subscribe(...a: unknown[]): Unsubscribable; };
+			const eventSubscription: ProxyEventSubscription = Reflect.get(context.fieldData, context.propKey) as ProxyEventSubscription;
+			const subscription: Unsubscribable = (<GenericSubscribeable>eventSubscription.observable).subscribe(...args);
+
+			/*
+			const hui = {
+				[methodName]: (value: unknown) => {
+					const eventSource = (Reflect.get(context.fieldData, context.propKey) as ProxyEventSubscription).source;
+					eventSource.next(value);
+				},
+			};
+			*/
+
+			context.proxy.subscriptionEmitters[context.propKey] = (value: unknown) => {
+				const eventSource = (Reflect.get(context.fieldData, context.propKey) as ProxyEventSubscription).source;
+				eventSource.next(value);
+			};
+
+			(async(): Promise<void> => {
+				await remoteInvoke__(context.proxy.requester, context.propKey, IpcProtocol.MESSAGE_EVENT_SUBSCRIBE, []);
+			})();
+
+			return {
+				unsubscribe: () => {
+					subscription.unsubscribe();
+					return remoteInvoke__(context.proxy.requester, context.propKey, IpcProtocol.MESSAGE_EVENT_UNSUBSCRIBE, []);
+				},
+			};
+		};
+	}
+
 	async apply(target: ProxyFieldContext, this_: any, args: any[]): Promise<any> {
 		// const instanceId: string = await target.proxy.instanceId();
-		const result = await remoteInvoke(target.proxy.communicator, target.propKey, args);
+		const result = await remoteInvoke(target.proxy.requester, target.propKey, args);
 
 		return result;
 	}
 
 	get(context: ProxyFieldContext, propKey: string): any {
+		if (propKey === 'subscribe') {
+			return IpcPropertyProxy.makeSubscribe(context);
+		}
+
 		throw new Error(`Unknown ipc-proxy property: (${ propKey })`);
 	}
 }
 
 const ipcPropertyProxyHandler__ = new IpcPropertyProxy();
 
-export interface IIpcProxy {
-	ipcProxyCommunicator(): MessagePortRequester;
-}
-
-export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxyState, IIpcProxy, Disposable {
+export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxyState, Disposable {
 	private readonly properties: Record<string, unknown> = {};
+	readonly subscriptionEmitters: Record<string, (...args: unknown[]) => void> = {};
 
-	readonly communicator: MessagePortRequester;
-
-	static create<T>(requester: MessagePortRequester): Promisify<T> {
-		const proxyHandler = new IpcProxy(requester);
+	static create<T>(requester: MessagePortRequester, inbox: MessagePortInbox): Promisify<T> {
+		const proxyHandler = new IpcProxy(requester, inbox);
         const proxy = new Proxy({}, proxyHandler) as Promisify<T>;
         return proxy;
 	}
 
-    /*
-	static createForContracts<T>(contracts: string[], comm): T {
-		const proxyHandler = new IpcProxy(this.getCommunicator(contracts[0], target), contracts);
-		const proxy: unknown = new Proxy({}, proxyHandler);
+	constructor(readonly requester: MessagePortRequester, readonly inbox: MessagePortInbox) {
+		this.inbox.onRequest.subscribe((request) => {
+			if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_MESSAGE_TYPE, IpcProtocol.MESSAGE_EVENT_EMIT)) {
+				const invoke = request.body as InvokeRequest;
+				const args = makeInboundArgs(invoke.args);
 
-		return proxy as T;
-	}
+				const prop = this.subscriptionEmitters[invoke.method];
+				if(!prop) {
+					return;
+				}
 
-	// TODO refactor this method
-	static createForInstance<T>(instanceId: string, targetId: number, args?: unknown[]): T {
-		const communicator = this.getCommunicator(instanceId, target);
-		const proxyHandler = new IpcProxy(communicator, instanceId);
-		const proxyTarget = this.getProxyTarget(args);
-		const proxy: unknown = new Proxy(proxyTarget, proxyHandler);
-
-		return proxy as T;
-	}*/
-
-	private static getProxyTarget(args: unknown[] | undefined): object {
-		const isArgsHasCallback = args?.some(value => isDispatchedCallback(value));
-		const callbackProxyTarget = (): void => {};
-		const objectProxyTarget = {};
-		return isArgsHasCallback ? callbackProxyTarget : objectProxyTarget;
-	}
-
-	static isProxy(instance: unknown): instance is IIpcProxy {
-		if (typeof instance !== 'object' || !instance) {
-			return false;
-		}
-
-		const hasAllProxyMethods = proxyMethods.every(name => name in instance);
-
-		return hasAllProxyMethods;
-	}
-
-	constructor(communicator: MessagePortRequester) {
-		this.communicator = communicator;
+				prop.apply(this, args);
+			}
+		});
 	}
 
 	get(context: Record<string, unknown>, propKey: string): unknown {
@@ -169,23 +194,19 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 	}
 
 	async apply(target_: unknown, this_: unknown, args: unknown[]): Promise<unknown> {
-		const result = await remoteInvoke(this.communicator, '', args);
+		const result = await remoteInvoke(this.requester, '', args);
 
 		return result;
 	}
 
 	dispose(): void {
-		(this.communicator.request({
+		(this.requester.request({
 			headers: {
 				[IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_DISPOSE,
 			},
 			body: {},
 		})).finally(() => {
-			this.communicator.dispose();
+			this.requester.dispose();
 		});
-	}
-
-	ipcProxyCommunicator(): MessagePortRequester {
-		return this.communicator;
 	}
 }

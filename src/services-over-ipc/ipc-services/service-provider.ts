@@ -9,6 +9,9 @@ import { instanceRequest, portRequest, registerInstanceRequest } from "../ipc-co
 import { MessagePortRequester } from "../ipc-communication/communicators/message-port-requester";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
 import { MessagePortRendererRequester } from "../ipc-communication/communicators/message-port-renderer-requester";
+import { MessagePortInbox } from "../ipc-communication/communicators/message-port-inbox";
+import { MessagePortMainInbox } from "../ipc-communication/communicators/message-port-main-inbox";
+import { MessagePortRendererInbox } from "../ipc-communication/communicators/message-port-renderer-inbox";
 
 const isMainProcess = ipcRenderer === undefined;
 
@@ -74,8 +77,8 @@ export class ServiceProvider {
 		let proxy = this.proxies.get(contracts[0]);
 
         if (!proxy) {
-			const requester = await this.createRequester(contracts);
-            proxy = IpcProxy.create(requester);
+			const { requester, inbox } = await this.createCommunicators(contracts);
+            proxy = IpcProxy.create(requester, inbox);
 			contracts.forEach(contract => {
 				this.proxies.set(contract, proxy);
 			});
@@ -84,7 +87,10 @@ export class ServiceProvider {
 		return Promise.resolve(proxy as Promisify<T>);
 	}
 
-	private async createRequester(contracts: string[]): Promise<MessagePortRequester> {
+	private async createCommunicators(contracts: string[]): Promise<{
+		requester: MessagePortRequester;
+		inbox: MessagePortInbox;
+	}> {
 		if (isMainProcess) {
 			if (!this.proxyHostGetter) {
 				throw new Error('Proxy host getter not provided');
@@ -105,7 +111,13 @@ export class ServiceProvider {
 			const channel = new MessageChannelMain();
 			host.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest(contracts), [channel.port1]);
 
-			return Promise.resolve(new MessagePortMainRequester(channel.port2));
+			const requester = new MessagePortMainRequester(channel.port2);
+			const inbox = new MessagePortMainInbox(channel.port2);
+
+			return Promise.resolve({
+				requester,
+				inbox
+			});
 		}
 
 		const response = await this.communicator().send(instanceRequest(contracts));
@@ -115,7 +127,13 @@ export class ServiceProvider {
 			throw new Error(`Remote host didn't provide port for instance with [${contracts[0]}]. Instance can not be created.`);
 		}
 
-		return Promise.resolve(new MessagePortRendererRequester(port));
+		const requester = new MessagePortRendererRequester(port);
+		const inbox = new MessagePortRendererInbox(port);
+
+		return Promise.resolve({
+			requester,
+			inbox
+		});
 	}
 
 	private communicator(): IpcCommunicator {

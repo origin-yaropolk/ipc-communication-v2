@@ -9,7 +9,6 @@ export abstract class ServiceLocatorOverIpc {
     public static initialize(): void {
         if (!ServiceLocatorOverIpc.host) {
             ServiceLocatorOverIpc.host = new ServiceHostRenderer(new RendererIpcInbox());
-            console.log('ServiceLocatorOverIpc initialized');
             return;
         }
 

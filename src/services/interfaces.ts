@@ -1,14 +1,20 @@
-interface IMyTestService {
+import { Observable } from "rxjs";
+
+export interface IMyTestService {
     add(a: number, b: number): number;
     greet(): string;
+    statusChanged: Observable<number>;
+    changeStatus(newNumber: number): void;
 }
 
-interface IMyRendererTestService {
+export interface IMyRendererTestService {
     sub(a: number, b: number): number;
     greet(): string;
+    statusChanged: Observable<number>;
+    changeStatus(newNumber: number): void;
 }
 
-interface IMySecondRendererTestService {
+export interface IMySecondRendererTestService {
     mul(a: number, b: number): number;
     greet(): string;
 }

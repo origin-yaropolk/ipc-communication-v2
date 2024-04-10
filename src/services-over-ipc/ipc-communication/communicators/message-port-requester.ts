@@ -6,14 +6,14 @@ export abstract class MessagePortRequester implements Disposable {
 	private idGenerator = 1;
 	private readonly invocations: Map<number, Invocation> = new Map();
 
-    constructor(protected port: MessagePort | MessagePortMain){}
+    constructor(readonly port: MessagePort | MessagePortMain){}
 
 	request(msg: IpcMessage): Promise<IpcResponse> {
 		return new Promise<IpcMessage>((resolve, reject) => {
 			const msgId = ++this.idGenerator;
 			msg.headers[HEADER_INVOKE_ID] = msgId;
 
-			const responseTimeout = 500;
+			const responseTimeout = 1000;
 
 			const invocationTimeout = setTimeout(() => {
 				const id = this.getMyInvokeId(msg);

@@ -3,6 +3,7 @@ import { MyTestService } from "./services/my-test-service";
 
 import { MY_RENDERER_TEST_SERVICE_CONTRACT, MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT, MY_TEST_SERVICE_CONTRACT } from "./services/contracts";
 import { ServiceLocatorOverIpc } from "./services-over-ipc/main";
+import { IMyRendererTestService, IMySecondRendererTestService, IMyTestService } from "./services/interfaces";
 
 
 function startServices(...services: unknown[]): void {
@@ -27,8 +28,11 @@ async function startApp(): Promise<void> {
         console.log(await serv2.greet());
         console.log(await serv2.mul(6, 10));
 
-        console.log(await serv3.greet());
-        console.log(await serv3.sub(100, 30));
+        serv3.statusChanged.subscribe((value: number) => {
+            console.log(value);
+        });
+
+        serv3.changeStatus(228);
     }, 2000);
     
     setTimeout(() => { createWindow("app/worker-client/index.html") }, 3000);

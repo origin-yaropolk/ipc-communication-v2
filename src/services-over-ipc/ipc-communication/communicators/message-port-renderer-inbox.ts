@@ -4,9 +4,9 @@ export class MessagePortRendererInbox extends MessagePortInbox {
 	constructor(port: MessagePort) {
         super(port);
 
-        port.onmessage = ev => {
+        port.addEventListener('message', (ev) => {
             this.messageHanlder(ev.data);
-        };
+        });
 
         this.port.start();
 	}

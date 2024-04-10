@@ -1,5 +1,6 @@
 import { ServiceLocatorOverIpc } from "../../services-over-ipc/renderer";
 import { MY_TEST_SERVICE_CONTRACT } from "../../services/contracts";
+import { IMyTestService } from "../../services/interfaces";
 import { MyRendererTestService } from "../../services/my-renderer-test-service";
 
 function startServices(...services: unknown[]): void {}

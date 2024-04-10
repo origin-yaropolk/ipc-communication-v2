@@ -62,11 +62,15 @@ export enum IpcProtocol {
 	MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance',
 	MESSAGE_GET_INSTANCE = 'host:get-instance',
 	MESSAGE_PORT_REQUEST = 'host:port-request',
+
 	MESSAGE_INVOKE = 'instance:invoke',
 	MESSAGE_DISPOSE = 'instance:dispose',
+
 	MESSAGE_EVENT_SUBSCRIBE = 'instance:event_subscribe',
 	MESSAGE_EVENT_UNSUBSCRIBE = 'instance:event_unsubscribe',
 	MESSAGE_EVENT_NEXT = 'instance:event_next',
+	MESSAGE_EVENT_EMIT = 'instance:event_emit',
+	
 	MESSAGE_REFLECT = 'instance:reflect',
 	MESSAGE_IS_ALIVE = 'instance:is-alive',
 	MESSAGE_TRANSFER_PORT = 'instance:transfer-port'
