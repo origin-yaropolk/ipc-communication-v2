@@ -1,17 +1,18 @@
 import { MessagePortMain } from 'electron';
 import { Disposable, HEADER_INVOKE_ID, Invocation } from './communicator-base';
-import { IpcMessage, IpcResponse } from '../ipc-protocol';
+import { IpcMessage, IpcProtocol, IpcResponse } from '../ipc-protocol';
 
 export abstract class MessagePortRequester implements Disposable {
 	private idGenerator = 1;
 	private readonly invocations: Map<number, Invocation> = new Map();
 
-    constructor(readonly port: MessagePort | MessagePortMain){}
+    constructor(readonly port: MessagePort | MessagePortMain, private readonly selfHostId: number){}
 
 	request(msg: IpcMessage): Promise<IpcResponse> {
 		return new Promise<IpcMessage>((resolve, reject) => {
 			const msgId = ++this.idGenerator;
 			msg.headers[HEADER_INVOKE_ID] = msgId;
+			msg.headers[IpcProtocol.HEADER_HOST_ID] = this.selfHostId;
 
 			const responseTimeout = 1000;
 

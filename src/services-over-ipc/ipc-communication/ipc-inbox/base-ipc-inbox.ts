@@ -1,6 +1,6 @@
 import { Event, IpcRendererEvent } from 'electron';
 import { Observable, Subject } from 'rxjs';
-import { IpcChannels, IpcMessage, IpcRequest } from '../ipc-protocol';
+import { IpcChannels, IpcMessage, IpcProtocol, IpcRequest } from '../ipc-protocol';
 
 interface WithSenderId extends Event {
 	sender: {
@@ -36,10 +36,13 @@ export abstract class BaseIpcInbox implements IIpcInbox {
 		this.onMessage(IpcChannels.REQUEST_CHANNEL, (ev: Event, msg: IpcMessage) => {
 			const responseChannel = this.makeResponseChannel(ev);
 
+			if (eventHasSenderId(ev)) {
+				msg.headers[IpcProtocol.HEADER_HOST_ID] = ev.sender.id;
+			}
+
 			const request: IpcRequest = {
 				...msg,
 				responseChannel,
-				webContentsId: eventHasSenderId(ev) ? ev.sender.id : undefined,
 				port: eventHasPort(ev) ? ev.ports[0] : undefined
 			};
 

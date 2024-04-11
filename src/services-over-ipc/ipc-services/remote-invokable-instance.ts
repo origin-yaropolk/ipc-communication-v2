@@ -15,16 +15,12 @@ function generateInstanceId(instance: unknown): string {
 	return id;
 }
 
-interface EventSubscription {
-	readonly subscription: Unsubscribable;
-	readonly clientId: number;
-}
-
 export class RemoteInvokableInstance implements Disposable {
 	readonly id: string;
 	private readonly instance: Record<string, unknown>;
 	private readonly inboxes: MessagePortInbox[] = [];
-	private readonly eventSubscriptions: EventSubscription[] = [];
+
+	private readonly eventSubscriptions: Map<string, Unsubscribable> = new Map();
 
 	constructor(instance: Record<string, unknown>) {
 		this.id = generateInstanceId(instance);
@@ -52,6 +48,10 @@ export class RemoteInvokableInstance implements Disposable {
 		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_MESSAGE_TYPE, IpcProtocol.MESSAGE_EVENT_SUBSCRIBE)) {
 			return this.handleSubscribeRequest(request);
 		}
+
+		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_MESSAGE_TYPE, IpcProtocol.MESSAGE_EVENT_UNSUBSCRIBE)) {
+			return this.handleUnsubscribeRequest(request);
+		}
     }
 
 	private handleInvokeRequest(request: IpcRequest) {
@@ -75,23 +75,36 @@ export class RemoteInvokableInstance implements Disposable {
 			throw new Error(`Invalid (${ invoke.method }) event`);
 		}
 
+		const hostId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID);
+		const id = `${hostId ?? 0}-${invoke.method}`;
 		const subscription = subscribable.subscribe({
 			next: (value: unknown) => {
 				request.responseChannel(emitEvent(invoke.method, [value]));
 			},
 
 			error: (error: unknown) => {
-				//const message = getMessageOfError(error);
-				//loggerService().error(`[InstanceEntry.eventSubscribe()] Event source(${ methodName }) emits an error:${ message }`, error);
+				console.error(error);
 			},
 		});
 
-		this.eventSubscriptions.push({
-			subscription,
-			clientId: 1
-		});
-		
-		IpcHelper.response(request, 1);
+		if (this.eventSubscriptions.has(id)) {
+			return IpcHelper.responseFailure(request, 'Instance already have such subscription');
+		}
+
+		this.eventSubscriptions.set(id, subscription);
+
+		IpcHelper.response(request, {});
+	}
+
+	private handleUnsubscribeRequest(request: IpcRequest) {
+		const invoke = request.body as InvokeRequest;
+		const hostId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID);
+		const id = `${hostId ?? 0}-${invoke.method}`
+		const sub = this.eventSubscriptions.get(id);
+		sub?.unsubscribe();
+		this.eventSubscriptions.delete(id);
+
+		IpcHelper.response(request, {});
 	}
 
 	dispose(): void {

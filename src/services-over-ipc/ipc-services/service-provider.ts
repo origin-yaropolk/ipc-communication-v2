@@ -1,7 +1,7 @@
 import { MessageChannelMain, ipcRenderer, webContents } from "electron";
 
 import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
-import { IpcChannels, IpcMessage, PortRendererResponse } from "../ipc-communication/ipc-protocol";
+import { IpcChannels, IpcMessage, IpcProtocol, PortRendererResponse } from "../ipc-communication/ipc-protocol";
 import { MessagePortMainRequester } from "../ipc-communication/communicators/message-port-main-requester";
 import { IpcProxy, Promisify } from "../ipc-communication/proxy/ipc-proxy";
 import { ReflectionAspect, reflectLocalInstance } from "./reflection";
@@ -111,7 +111,7 @@ export class ServiceProvider {
 			const channel = new MessageChannelMain();
 			host.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest(contracts), [channel.port1]);
 
-			const requester = new MessagePortMainRequester(channel.port2);
+			const requester = new MessagePortMainRequester(channel.port2, 0);
 			const inbox = new MessagePortMainInbox(channel.port2);
 
 			return Promise.resolve({
@@ -127,7 +127,7 @@ export class ServiceProvider {
 			throw new Error(`Remote host didn't provide port for instance with [${contracts[0]}]. Instance can not be created.`);
 		}
 
-		const requester = new MessagePortRendererRequester(port);
+		const requester = new MessagePortRendererRequester(port, response.headers[IpcProtocol.HEADER_HOST_ID]);
 		const inbox = new MessagePortRendererInbox(port);
 
 		return Promise.resolve({

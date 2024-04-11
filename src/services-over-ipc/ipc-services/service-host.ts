@@ -30,26 +30,24 @@ export class ServiceHost {
     private initInboxing(): void {
         const requestHandlers: { [key: string]: (requet: IpcRequest) => void; } = {
             [IpcProtocol.MESSAGE_REGISTER_INSTANCE]: (request: IpcRequest) => {
-                if (!request.webContentsId) {
+                const data = request.body as RegisterInstanceRequest
+
+                const hostId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID) ?? 0;
+                if (!hostId) {
                     return IpcHelper.responseFailure(request, 'RegisterInstanse request must contain sender id');
                 }
 
-                const data = request.body as RegisterInstanceRequest
-                const id = request.webContentsId;
-
-                const remoteHost = webContents.fromId(id);
+                const remoteHost = webContents.fromId(hostId);
 
                 if (!remoteHost || remoteHost.isDestroyed()) {
                     return IpcHelper.responseFailure(request, `ServiceHost for contracts [${data.contracts[0]}] does not exists anymore`);
                 }
 
-                data.contracts.forEach(contract => {
-                    this.remoteInstancesRegistry.set(contract, id);
-                });
+                this.rememberHost(remoteHost);
 
-                if (!this.knownHosts.has(id)) {
-                    this.setupHostAliveWatchdog(remoteHost);
-                }
+                data.contracts.forEach(contract => {
+                    this.remoteInstancesRegistry.set(contract, hostId);
+                });
 
                 IpcHelper.response(request, 'Successful registered');
             },
@@ -67,13 +65,15 @@ export class ServiceHost {
             [IpcProtocol.MESSAGE_GET_INSTANCE]: (request: IpcRequest) => {
                 const data = request.body as InstanceRequest
                 const [contract] = data.contracts;
+                const requestingHost = webContents.fromId(IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID) ?? 0);
 
-                if (request.webContentsId && !webContents.fromId(request.webContentsId)?.isDestroyed() && !this.knownHosts.has(request.webContentsId)) {
-                    this.knownHosts.add(request.webContentsId);
+                if (!requestingHost) {
+                    return;
                 }
 
-                const localInstance = this.instanceManager.tryGetInstance(data.contracts);
+                this.rememberHost(requestingHost);
 
+                const localInstance = this.instanceManager.tryGetInstance(data.contracts);
                 if (localInstance) {
                     const channel = new MessageChannelMain();
 
@@ -111,6 +111,19 @@ export class ServiceHost {
 				IpcHelper.responseFailure(request, error);
 			}
 		});
+    }
+
+    private rememberHost(host: WebContents): void {
+        if (host.isDestroyed()) {
+            this.knownHosts.delete(host.id);
+        }
+
+        if (this.knownHosts.has(host.id)) {
+            return;
+        }
+
+        this.knownHosts.add(host.id);
+        this.setupHostAliveWatchdog(host);
     }
 
     private setupHostAliveWatchdog(host: WebContents): void {

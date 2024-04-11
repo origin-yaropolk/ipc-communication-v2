@@ -86,19 +86,14 @@ class IpcPropertyProxy implements ProxyHandler<ProxyFieldContext> {
 			const eventSubscription: ProxyEventSubscription = Reflect.get(context.fieldData, context.propKey) as ProxyEventSubscription;
 			const subscription: Unsubscribable = (<GenericSubscribeable>eventSubscription.observable).subscribe(...args);
 
-			/*
-			const hui = {
-				[methodName]: (value: unknown) => {
+			if (!context.proxy.subscriptionEmitters[context.propKey]) {
+				context.proxy.subscriptionEmitters[context.propKey] = (value: unknown) => {
 					const eventSource = (Reflect.get(context.fieldData, context.propKey) as ProxyEventSubscription).source;
 					eventSource.next(value);
-				},
-			};
-			*/
+				};
+			}
 
-			context.proxy.subscriptionEmitters[context.propKey] = (value: unknown) => {
-				const eventSource = (Reflect.get(context.fieldData, context.propKey) as ProxyEventSubscription).source;
-				eventSource.next(value);
-			};
+			
 
 			(async(): Promise<void> => {
 				await remoteInvoke__(context.proxy.requester, context.propKey, IpcProtocol.MESSAGE_EVENT_SUBSCRIBE, []);

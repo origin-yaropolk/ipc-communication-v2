@@ -12,6 +12,11 @@ async function startRenderer(): Promise<void> {
     const sub = pr.statusChanged.subscribe((val) => {
         console.log(val);
     });
+
+    setTimeout(() => {
+        sub.unsubscribe();
+        console.log('unsubed')
+    },30000);
 }
 
 startRenderer();

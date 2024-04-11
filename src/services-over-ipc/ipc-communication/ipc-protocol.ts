@@ -15,7 +15,7 @@ export type IpcResponse = IpcMessage;
 
 export interface IpcRequest extends IpcMessage {
 	responseChannel(value: IpcMessage): void;
-	webContentsId?: number;
+	// webContentsId?: number;
 	port?: MessagePort;
 }
 
@@ -57,6 +57,7 @@ export interface DispatchedCallback {
 
 export enum IpcProtocol {
 	HEADER_MESSAGE_TYPE = 'message-type',
+	HEADER_HOST_ID = 'host-id',
 
 	MESSAGE_REGISTER_INSTANCE = 'host:register-instance',
 	MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance',
