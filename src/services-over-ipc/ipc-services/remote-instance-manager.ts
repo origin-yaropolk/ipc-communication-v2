@@ -24,6 +24,12 @@ export class RemoteInstanceManager {
 		return instance;
 	}
 
+	onHostDead(id: number): void {
+		this.instances.forEach(instance => {
+			instance.onHostDead(id);
+		});
+	}
+
 	private addInstance(instance: Record<string, unknown>): RemoteInvokableInstance {
 		const entry = new RemoteInvokableInstance(instance);
 		this.instances.push(entry);

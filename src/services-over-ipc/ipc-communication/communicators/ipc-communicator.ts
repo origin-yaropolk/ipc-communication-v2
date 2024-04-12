@@ -1,8 +1,8 @@
 import { Subscription } from 'rxjs';
 import { IpcHelper } from '../ipc-core';
-import { IpcMessage, IpcProtocol } from '../ipc-protocol';
+import { IpcMessage } from '../ipc-protocol';
 import { IIpcInbox } from '../ipc-inbox/base-ipc-inbox';
-import { CommunicatorProtocol, Invocation } from './communicator';
+import { CommunicatorProtocol, Invocation, getUID } from './communicator';
 
 export class IpcCommunicator {
 	private readonly id = getUID();
@@ -36,7 +36,7 @@ export class IpcCommunicator {
 		return new Promise<IpcMessage>((resolve, reject) => {
 			const msgId = ++this.idGenerator;
 			msg.headers[CommunicatorProtocol.HEADER_INVOKE_ID] = msgId;
-			msg.headers[IpcProtocol.HEADER_HOST_ID] = this.id;
+			msg.headers[CommunicatorProtocol.HEADER_COMMUNICATOR_ID] = this.id;
 
 			const responseTimeout = 1500;
 
@@ -63,7 +63,7 @@ export class IpcCommunicator {
 	}
 
 	private getMyInvokeId(msg: IpcMessage): number | null {
-		if (!IpcHelper.hasHeader(msg, IpcProtocol.HEADER_HOST_ID, this.id)) {
+		if (!IpcHelper.hasHeader(msg, CommunicatorProtocol.HEADER_COMMUNICATOR_ID, this.id)) {
 			return null;
 		}
 
@@ -79,7 +79,3 @@ export class IpcCommunicator {
 		this.responseSubscription.unsubscribe();
 	}
 }
-function getUID() {
-	throw new Error('Function not implemented.');
-}
-

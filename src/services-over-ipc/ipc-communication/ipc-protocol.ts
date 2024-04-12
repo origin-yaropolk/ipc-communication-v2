@@ -15,7 +15,6 @@ export type IpcResponse = IpcMessage;
 
 export interface IpcRequest extends IpcMessage {
 	responseChannel(value: IpcMessage): void;
-	// webContentsId?: number;
 	port?: MessagePort;
 }
 
@@ -43,9 +42,14 @@ export interface RegisterInstanceRequest {
 }
 
 export type UnregisterInstanceRequest = RegisterInstanceRequest;
+
 export interface PortRequest extends RegisterInstanceRequest {
 	id: number;
 	remoteId: number;
+}
+
+export interface HostDeadNotificationRequest {
+	id: number;
 }
 
 export type GetInstanceResponse = InstanceBaseRequest;
@@ -67,6 +71,7 @@ export enum IpcProtocol {
 	MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance',
 	MESSAGE_GET_INSTANCE = 'host:get-instance',
 	MESSAGE_PORT_REQUEST = 'host:port-request',
+	MESSAGE_HOST_DEAD_NOTIFICATION = 'host:host-dead-notification',
 
 	MESSAGE_INVOKE = 'instance:invoke',
 	MESSAGE_DISPOSE = 'instance:dispose',

@@ -99,6 +99,9 @@ export class CommunicatorBase implements Communicator {
     }
 
     public dispose(): void {
+		this.invocations.clear();
+		this.onRequestSubject.complete();
+		this.onClosedSubject.complete();
         this.port.close();
     }
 }

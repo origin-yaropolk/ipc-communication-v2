@@ -3,7 +3,7 @@ import { RemoteInstanceManager } from "./remote-instance-manager";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
 import { InstanceRequest, IpcChannels, IpcProtocol, IpcRequest, RegisterInstanceRequest, UnregisterInstanceRequest } from "../ipc-communication/ipc-protocol";
 import { IpcHelper } from "../ipc-communication/ipc-core";
-import { portRequest } from '../ipc-communication/ipc-messages';
+import { hostDeadNotificationRequest, portRequest } from '../ipc-communication/ipc-messages';
 import { ServiceProvider } from "./service-provider";
 import { MainCommunicator } from "../ipc-communication/communicators/main-communicator";
 
@@ -133,6 +133,7 @@ export class ServiceHost {
     private setupHostAliveWatchdog(host: WebContents): void {
         host.once('destroyed', () => {
             this.removeRemoteHost(host.id);
+            this.notifyOthers(host.id);
         });
     }
 
@@ -150,5 +151,12 @@ export class ServiceHost {
         });
         
         this.knownHosts.delete(remoteHostId);
+        this.instanceManager.onHostDead(remoteHostId);
+    }
+
+    private notifyOthers(removedHostId: number): void {
+        this.knownHosts.forEach(id => {
+            webContents.fromId(id)?.postMessage(IpcChannels.REQUEST_CHANNEL, hostDeadNotificationRequest({id: removedHostId}))
+        });
     }
 }

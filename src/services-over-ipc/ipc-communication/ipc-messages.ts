@@ -1,4 +1,4 @@
-import { InstanceRequest, InvokeRequest, IpcMessage, IpcProtocol, PortRequest, RegisterInstanceRequest } from "./ipc-protocol";
+import { HostDeadNotificationRequest, InstanceRequest, InvokeRequest, IpcMessage, IpcProtocol, PortRequest, RegisterInstanceRequest } from "./ipc-protocol";
 
 function baseRequest(body: unknown, requestType: IpcProtocol): IpcMessage {
     const message: IpcMessage = {
@@ -29,4 +29,12 @@ export function instanceRequest(requestData: InstanceRequest): IpcMessage {
 
 export function emitEventRequest(requestData: InvokeRequest): IpcMessage {
     return baseRequest(requestData, IpcProtocol.MESSAGE_EVENT_EMIT);
+}
+
+export function disposeRequest(): IpcMessage {
+    return baseRequest({}, IpcProtocol.MESSAGE_DISPOSE);
+}
+
+export function hostDeadNotificationRequest(requestData: HostDeadNotificationRequest): IpcMessage {
+    return baseRequest(requestData, IpcProtocol.MESSAGE_HOST_DEAD_NOTIFICATION);
 }

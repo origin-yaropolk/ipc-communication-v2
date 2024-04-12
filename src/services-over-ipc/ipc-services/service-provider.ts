@@ -115,9 +115,6 @@ export class ServiceProvider {
 			throw new Error(`Remote host didn't provide port for instance with [${contracts[0]}]. Instance can not be created.`);
 		}
 
-		// const requester = new MessagePortRendererRequester(port, response.headers[IpcProtocol.HEADER_HOST_ID]);
-		// const inbox = new MessagePortRendererInbox(response.headers[IpcProtocol.HEADER_HOST_ID], port);
-
 		return new RendererCommunicator(response.headers[IpcProtocol.HEADER_HOST_ID], 0, port);
 	}
 

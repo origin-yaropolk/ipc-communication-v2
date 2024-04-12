@@ -1,7 +1,7 @@
 import { RendererCommunicator } from "../ipc-communication/communicators/renderer-communicator";
 import { IpcHelper } from "../ipc-communication/ipc-core";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
-import { IpcProtocol, IpcRequest, PortRequest } from "../ipc-communication/ipc-protocol";
+import { HostDeadNotificationRequest, IpcProtocol, IpcRequest, PortRequest } from "../ipc-communication/ipc-protocol";
 import { RemoteInstanceManager } from "./remote-instance-manager";
 import { ServiceProvider } from "./service-provider";
 
@@ -39,7 +39,13 @@ export class ServiceHostRenderer {
 				instance.addCommunicator(new RendererCommunicator(data.id, data.remoteId, port));
 
 				IpcHelper.response(request, 'Port successfully added');
-            }
+            },
+
+			[IpcProtocol.MESSAGE_HOST_DEAD_NOTIFICATION]: (request: IpcRequest) => {
+				const data = request.body as HostDeadNotificationRequest;
+
+				this.instanceManager.onHostDead(data.id);
+			}
         };
 
         this.inbox.onRequest.subscribe((request: IpcRequest) => {

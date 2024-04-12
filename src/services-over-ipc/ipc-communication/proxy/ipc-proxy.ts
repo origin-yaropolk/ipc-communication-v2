@@ -2,6 +2,7 @@ import { IpcHelper } from '../ipc-core';
 import { InvokeRequest, IpcProtocol, makeInboundArgs, makeOutboundArgs } from '../ipc-protocol';
 import { Subject, Unsubscribable } from 'rxjs';
 import { Communicator, RequestMode } from '../communicators/communicator';
+import { disposeRequest } from '../ipc-messages';
 
 const ignoredMethods = ['then', 'reject'];
 const proxyMethods = ['dispose'];
@@ -192,13 +193,6 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 	}
 
 	dispose(): void {
-		(this.communicator.request({
-			headers: {
-				[IpcProtocol.HEADER_REQUEST_TYPE]: IpcProtocol.MESSAGE_DISPOSE,
-			},
-			body: {},
-		}, RequestMode.FireAndForget)).finally(() => {
-			this.communicator.dispose();
-		});
+		this.communicator.request(disposeRequest(), RequestMode.FireAndForget).finally(() => this.communicator.dispose());
 	}
 }
