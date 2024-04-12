@@ -1,37 +1,9 @@
 import { InstanceRequest, InvokeRequest, IpcMessage, IpcProtocol, PortRequest, RegisterInstanceRequest } from "./ipc-protocol";
 
-export function registerInstanceRequest(contracts: string[]): IpcMessage {
-    const body: RegisterInstanceRequest = { contracts };
-    
+function baseRequest(body: unknown, requestType: IpcProtocol): IpcMessage {
     const message: IpcMessage = {
         headers: {
-            [IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_REGISTER_INSTANCE,
-        },
-        body,
-    };
-
-    return message
-}
-
-export function portRequest(contracts: string[]): IpcMessage {
-    const body: PortRequest = { contracts };
-    
-    const message: IpcMessage = {
-        headers: {
-            [IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_PORT_REQUEST,
-        },
-        body
-    };
-
-    return message
-}
-
-export function instanceRequest(contracts: string[]): IpcMessage {
-    const body: InstanceRequest = { contracts };
-    
-    const message: IpcMessage = {
-        headers: {
-            [IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_GET_INSTANCE,
+            [IpcProtocol.HEADER_REQUEST_TYPE]: requestType,
         },
         body
     };
@@ -39,18 +11,22 @@ export function instanceRequest(contracts: string[]): IpcMessage {
     return message;
 }
 
-export function emitEvent(method: string, args: unknown[]): IpcMessage {
-    const body: InvokeRequest = { 
-        method,
-        args
-    };
+export function registerInstanceRequest(requestData: RegisterInstanceRequest): IpcMessage {
+    return baseRequest(requestData, IpcProtocol.MESSAGE_REGISTER_INSTANCE);
+}
 
-    const message: IpcMessage = {
-        headers: {
-            [IpcProtocol.HEADER_MESSAGE_TYPE]: IpcProtocol.MESSAGE_EVENT_EMIT
-        },
-        body
-    }
+export function invokeRequest(requestData: InvokeRequest) {
+    return baseRequest(requestData, IpcProtocol.MESSAGE_INVOKE);
+}
 
-    return message;
+export function portRequest(requestData: PortRequest): IpcMessage {
+    return baseRequest(requestData, IpcProtocol.MESSAGE_PORT_REQUEST);
+}
+
+export function instanceRequest(requestData: InstanceRequest): IpcMessage {
+    return baseRequest(requestData, IpcProtocol.MESSAGE_GET_INSTANCE);
+}
+
+export function emitEventRequest(requestData: InvokeRequest): IpcMessage {
+    return baseRequest(requestData, IpcProtocol.MESSAGE_EVENT_EMIT);
 }

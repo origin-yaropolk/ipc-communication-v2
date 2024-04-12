@@ -1,10 +1,10 @@
 import { Subscription } from 'rxjs';
-import { Disposable, HEADER_COMMUNICATOR_ID, HEADER_INVOKE_ID, Invocation, getUID } from './communicator-base';
 import { IpcHelper } from '../ipc-core';
-import { IpcMessage } from '../ipc-protocol';
+import { IpcMessage, IpcProtocol } from '../ipc-protocol';
 import { IIpcInbox } from '../ipc-inbox/base-ipc-inbox';
+import { CommunicatorProtocol, Invocation } from './communicator';
 
-export class IpcCommunicator implements Disposable {
+export class IpcCommunicator {
 	private readonly id = getUID();
 	private readonly sender: (value: IpcMessage) => void;
 	private idGenerator = 0;
@@ -35,8 +35,8 @@ export class IpcCommunicator implements Disposable {
 	send(msg: IpcMessage): Promise<IpcMessage> {
 		return new Promise<IpcMessage>((resolve, reject) => {
 			const msgId = ++this.idGenerator;
-			msg.headers[HEADER_INVOKE_ID] = msgId;
-			msg.headers[HEADER_COMMUNICATOR_ID] = this.id;
+			msg.headers[CommunicatorProtocol.HEADER_INVOKE_ID] = msgId;
+			msg.headers[IpcProtocol.HEADER_HOST_ID] = this.id;
 
 			const responseTimeout = 1500;
 
@@ -63,13 +63,13 @@ export class IpcCommunicator implements Disposable {
 	}
 
 	private getMyInvokeId(msg: IpcMessage): number | null {
-		if (!IpcHelper.hasHeader(msg, HEADER_COMMUNICATOR_ID, this.id)) {
+		if (!IpcHelper.hasHeader(msg, IpcProtocol.HEADER_HOST_ID, this.id)) {
 			return null;
 		}
 
-		const id: unknown = HEADER_INVOKE_ID in msg.headers ? msg.headers[HEADER_INVOKE_ID] : null;
+		const id: unknown = CommunicatorProtocol.HEADER_INVOKE_ID in msg.headers ? msg.headers[CommunicatorProtocol.HEADER_INVOKE_ID] : null;
 		if (typeof id !== 'number') {
-			throw new Error(`[${ HEADER_INVOKE_ID }] expected to be a number`);
+			throw new Error(`[${ CommunicatorProtocol.HEADER_INVOKE_ID }] expected to be a number`);
 		}
 
 		return id;
@@ -79,3 +79,7 @@ export class IpcCommunicator implements Disposable {
 		this.responseSubscription.unsubscribe();
 	}
 }
+function getUID() {
+	throw new Error('Function not implemented.');
+}
+

@@ -1,17 +1,14 @@
 import { MessageChannelMain, ipcRenderer, webContents } from "electron";
 
-import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
 import { IpcChannels, IpcMessage, IpcProtocol, PortRendererResponse } from "../ipc-communication/ipc-protocol";
-import { MessagePortMainRequester } from "../ipc-communication/communicators/message-port-main-requester";
 import { IpcProxy, Promisify } from "../ipc-communication/proxy/ipc-proxy";
 import { ReflectionAspect, reflectLocalInstance } from "./reflection";
-import { instanceRequest, portRequest, registerInstanceRequest } from "../ipc-communication/ipc-messages";
-import { MessagePortRequester } from "../ipc-communication/communicators/message-port-requester";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
-import { MessagePortRendererRequester } from "../ipc-communication/communicators/message-port-renderer-requester";
-import { MessagePortInbox } from "../ipc-communication/communicators/message-port-inbox";
-import { MessagePortMainInbox } from "../ipc-communication/communicators/message-port-main-inbox";
-import { MessagePortRendererInbox } from "../ipc-communication/communicators/message-port-renderer-inbox";
+import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";
+import { instanceRequest, portRequest, registerInstanceRequest } from "../ipc-communication/ipc-messages";
+import { MainCommunicator } from "../ipc-communication/communicators/main-communicator";
+import { Communicator } from "../ipc-communication/communicators/communicator";
+import { RendererCommunicator } from "../ipc-communication/communicators/renderer-communicator";
 
 const isMainProcess = ipcRenderer === undefined;
 
@@ -37,7 +34,7 @@ export class ServiceProvider {
 
 	static registerFactory(contracts: string[] | undefined, factory: ServiceFactory): void {
 		if (!isMainProcess && contracts) {
-			const registerAction = () => { ServiceProvider.communicator?.send(registerInstanceRequest(contracts)); };
+			const registerAction = () => { ServiceProvider.communicator?.send(registerInstanceRequest({contracts})); };
 
 			if (ServiceProvider.communicator) {
 				registerAction();
@@ -77,8 +74,8 @@ export class ServiceProvider {
 		let proxy = this.proxies.get(contracts[0]);
 
         if (!proxy) {
-			const { requester, inbox } = await this.createCommunicators(contracts);
-            proxy = IpcProxy.create(requester, inbox);
+			const proxyCommunicator = await this.createCommunicators(contracts);
+            proxy = IpcProxy.create(proxyCommunicator);
 			contracts.forEach(contract => {
 				this.proxies.set(contract, proxy);
 			});
@@ -87,10 +84,7 @@ export class ServiceProvider {
 		return Promise.resolve(proxy as Promisify<T>);
 	}
 
-	private async createCommunicators(contracts: string[]): Promise<{
-		requester: MessagePortRequester;
-		inbox: MessagePortInbox;
-	}> {
+	private async createCommunicators(contracts: string[]): Promise<Communicator> {
 		if (isMainProcess) {
 			if (!this.proxyHostGetter) {
 				throw new Error('Proxy host getter not provided');
@@ -109,31 +103,22 @@ export class ServiceProvider {
 			}
 
 			const channel = new MessageChannelMain();
-			host.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest(contracts), [channel.port1]);
+			host.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest({id: hostId, remoteId: 0, contracts}), [channel.port1]);
 
-			const requester = new MessagePortMainRequester(channel.port2, 0);
-			const inbox = new MessagePortMainInbox(channel.port2);
-
-			return Promise.resolve({
-				requester,
-				inbox
-			});
+			return new MainCommunicator(0, hostId, channel.port2);
 		}
 
-		const response = await this.communicator().send(instanceRequest(contracts));
+		const response = await this.communicator().send(instanceRequest({contracts}));
 		const port = extractPort(response.body);
 
 		if (!port) {
 			throw new Error(`Remote host didn't provide port for instance with [${contracts[0]}]. Instance can not be created.`);
 		}
 
-		const requester = new MessagePortRendererRequester(port, response.headers[IpcProtocol.HEADER_HOST_ID]);
-		const inbox = new MessagePortRendererInbox(port);
+		// const requester = new MessagePortRendererRequester(port, response.headers[IpcProtocol.HEADER_HOST_ID]);
+		// const inbox = new MessagePortRendererInbox(response.headers[IpcProtocol.HEADER_HOST_ID], port);
 
-		return Promise.resolve({
-			requester,
-			inbox
-		});
+		return new RendererCommunicator(response.headers[IpcProtocol.HEADER_HOST_ID], 0, port);
 	}
 
 	private communicator(): IpcCommunicator {

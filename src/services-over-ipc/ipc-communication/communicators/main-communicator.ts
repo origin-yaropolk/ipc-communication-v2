@@ -1,10 +1,9 @@
 import { MessagePortMain } from 'electron';
+import { CommunicatorBase } from './communicator-base';
 
-import { MessagePortInbox } from './message-port-inbox';
-
-export class MessagePortMainInbox extends MessagePortInbox {
-	constructor(port: MessagePortMain) {
-        super(port);
+export class MainCommunicator extends CommunicatorBase {
+	constructor(id: number, remoteId: number, port: MessagePortMain) {
+        super(id, remoteId, port);
 
         port.on('message', ev => {
             this.messageHanlder(ev.data);

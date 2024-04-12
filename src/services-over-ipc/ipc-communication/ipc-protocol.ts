@@ -29,7 +29,7 @@ export interface PortRendererResponse {
 
 export interface InvokeRequest extends InstanceBaseRequest {
 	method: string;
-	args: any[];
+	args: unknown[];
 }
 
 export type DisposeRequest = InstanceBaseRequest;
@@ -43,7 +43,10 @@ export interface RegisterInstanceRequest {
 }
 
 export type UnregisterInstanceRequest = RegisterInstanceRequest;
-export type PortRequest = RegisterInstanceRequest;
+export interface PortRequest extends RegisterInstanceRequest {
+	id: number;
+	remoteId: number;
+}
 
 export type GetInstanceResponse = InstanceBaseRequest;
 
@@ -56,8 +59,9 @@ export interface DispatchedCallback {
 }
 
 export enum IpcProtocol {
-	HEADER_MESSAGE_TYPE = 'message-type',
+	HEADER_REQUEST_TYPE = 'request-type',
 	HEADER_HOST_ID = 'host-id',
+	HEADER_REQUEST_MODE = 'request-mode',
 
 	MESSAGE_REGISTER_INSTANCE = 'host:register-instance',
 	MESSAGE_UNREGISTER_INSTANCE = 'host:unregister-instance',
@@ -69,12 +73,7 @@ export enum IpcProtocol {
 
 	MESSAGE_EVENT_SUBSCRIBE = 'instance:event_subscribe',
 	MESSAGE_EVENT_UNSUBSCRIBE = 'instance:event_unsubscribe',
-	MESSAGE_EVENT_NEXT = 'instance:event_next',
 	MESSAGE_EVENT_EMIT = 'instance:event_emit',
-	
-	MESSAGE_REFLECT = 'instance:reflect',
-	MESSAGE_IS_ALIVE = 'instance:is-alive',
-	MESSAGE_TRANSFER_PORT = 'instance:transfer-port'
 }
 
 export enum IpcChannels {

@@ -1,10 +1,9 @@
-import { Disposable, getUID } from '../ipc-communication/communicators/communicator-base';
 import { ReflectionAspect, reflectLocalInstance } from './reflection';
-import { MessagePortInbox } from '../ipc-communication/communicators/message-port-inbox';
 import { IpcHelper } from '../ipc-communication/ipc-core';
 import { InvokeRequest, IpcProtocol, IpcRequest, makeInboundArgs, makeOutboundValue } from '../ipc-communication/ipc-protocol';
 import { Subscribable, Unsubscribable } from 'rxjs';
-import { emitEvent } from '../ipc-communication/ipc-messages';
+import { emitEventRequest } from '../ipc-communication/ipc-messages';
+import { Communicator, RequestMode, getUID } from '../ipc-communication/communicators/communicator';
 
 const instanceUidLength = 8;
 
@@ -15,11 +14,10 @@ function generateInstanceId(instance: unknown): string {
 	return id;
 }
 
-export class RemoteInvokableInstance implements Disposable {
+export class RemoteInvokableInstance {
 	readonly id: string;
 	private readonly instance: Record<string, unknown>;
-	private readonly inboxes: MessagePortInbox[] = [];
-
+	private readonly communicatorsByRemoteId: Map<number, Communicator> = new Map();
 	private readonly eventSubscriptions: Map<string, Unsubscribable> = new Map();
 
 	constructor(instance: Record<string, unknown>) {
@@ -27,30 +25,34 @@ export class RemoteInvokableInstance implements Disposable {
 		this.instance = instance;
 	}
 
-    addInbox(inbox: MessagePortInbox) {
-        this.inboxes.push(inbox);
+    addCommunicator(communicator: Communicator) {
+        this.communicatorsByRemoteId.set(communicator.remoteId, communicator);
 
-		inbox.onClosed.subscribe(() => {
-			inbox.dispose();
+		communicator.onClosed.subscribe(() => {
+			communicator.dispose();
 			// todo: remove from array
 		});
 		
-		inbox.onRequest.subscribe((request) => {
+		communicator.onRequest.subscribe((request) => {
 			this.handleRequest(request);
 		});
     }
 
     private handleRequest(request: IpcRequest): void {
-		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_MESSAGE_TYPE, IpcProtocol.MESSAGE_INVOKE)) {
+		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_INVOKE)) {
 			return this.handleInvokeRequest(request);
 		}
 
-		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_MESSAGE_TYPE, IpcProtocol.MESSAGE_EVENT_SUBSCRIBE)) {
+		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_EVENT_SUBSCRIBE)) {
 			return this.handleSubscribeRequest(request);
 		}
 
-		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_MESSAGE_TYPE, IpcProtocol.MESSAGE_EVENT_UNSUBSCRIBE)) {
+		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_EVENT_UNSUBSCRIBE)) {
 			return this.handleUnsubscribeRequest(request);
+		}
+
+		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_DISPOSE)) {
+			return this.handleDisposeRequest(request);
 		}
     }
 
@@ -75,11 +77,14 @@ export class RemoteInvokableInstance implements Disposable {
 			throw new Error(`Invalid (${ invoke.method }) event`);
 		}
 
-		const hostId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID);
-		const id = `${hostId ?? 0}-${invoke.method}`;
+		const hostId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID) ?? 0;
+		const id = `${hostId}-${invoke.method}`;
 		const subscription = subscribable.subscribe({
 			next: (value: unknown) => {
-				request.responseChannel(emitEvent(invoke.method, [value]));
+				this.communicatorsByRemoteId.get(hostId)?.request(emitEventRequest({
+					method: invoke.method,
+					args: [value]
+				}), RequestMode.FireAndForget);
 			},
 
 			error: (error: unknown) => {
@@ -107,9 +112,13 @@ export class RemoteInvokableInstance implements Disposable {
 		IpcHelper.response(request, {});
 	}
 
+	private handleDisposeRequest(request: IpcRequest) {
+		
+	}
+
 	dispose(): void {
-		for (const inbox of this.inboxes) {
-			inbox.dispose();
+		for (const communicator of this.communicatorsByRemoteId.values()) {
+			communicator.dispose();
 		}
 	}
 }

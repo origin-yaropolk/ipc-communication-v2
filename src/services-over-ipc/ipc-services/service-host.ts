@@ -3,9 +3,9 @@ import { RemoteInstanceManager } from "./remote-instance-manager";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
 import { InstanceRequest, IpcChannels, IpcProtocol, IpcRequest, RegisterInstanceRequest, UnregisterInstanceRequest } from "../ipc-communication/ipc-protocol";
 import { IpcHelper } from "../ipc-communication/ipc-core";
-import { MessagePortMainInbox } from "../ipc-communication/communicators/message-port-main-inbox";
 import { portRequest } from '../ipc-communication/ipc-messages';
 import { ServiceProvider } from "./service-provider";
+import { MainCommunicator } from "../ipc-communication/communicators/main-communicator";
 
 export class ServiceHost {
     private readonly knownHosts: Set<number> = new Set();
@@ -77,7 +77,7 @@ export class ServiceHost {
                 if (localInstance) {
                     const channel = new MessageChannelMain();
 
-                    localInstance.addInbox(new MessagePortMainInbox(channel.port1));
+                    localInstance.addCommunicator(new MainCommunicator(0, requestingHost.id, channel.port1,));
                     return IpcHelper.response(request, {port: channel.port2});
                 }
 
@@ -95,13 +95,17 @@ export class ServiceHost {
 
                 const channel = new MessageChannelMain();
                
-                targetHost.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest(data.contracts), [channel.port1]);
-                IpcHelper.response(request, {port: channel.port2});
+                targetHost.postMessage(IpcChannels.REQUEST_CHANNEL, portRequest({id: targetHost.id, remoteId: requestingHost.id, contracts: data.contracts}), [channel.port1]);
+                IpcHelper.response(request, { 
+                    id: requestingHost.id,
+                    remoteId: targetHost.id,
+                    port: channel.port2
+                });
             }
         };
 
         this.inbox.onRequest.subscribe((request: IpcRequest) => {
-			const messageType = IpcHelper.headerValue<string>(request, IpcProtocol.HEADER_MESSAGE_TYPE);
+			const messageType = IpcHelper.headerValue<string>(request, IpcProtocol.HEADER_REQUEST_TYPE);
 			try {
 				if (messageType && messageType in requestHandlers) {
 					requestHandlers[messageType](request);

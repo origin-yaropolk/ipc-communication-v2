@@ -1,4 +1,4 @@
-import { MessagePortRendererInbox } from "../ipc-communication/communicators/message-port-renderer-inbox";
+import { RendererCommunicator } from "../ipc-communication/communicators/renderer-communicator";
 import { IpcHelper } from "../ipc-communication/ipc-core";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
 import { IpcProtocol, IpcRequest, PortRequest } from "../ipc-communication/ipc-protocol";
@@ -36,14 +36,14 @@ export class ServiceHostRenderer {
 					return IpcHelper.responseFailure(request, `No service provider found for contracts [${data.contracts[0]}]`);
 				}
 
-				instance.addInbox(new MessagePortRendererInbox(port));
+				instance.addCommunicator(new RendererCommunicator(data.id, data.remoteId, port));
 
 				IpcHelper.response(request, 'Port successfully added');
             }
         };
 
         this.inbox.onRequest.subscribe((request: IpcRequest) => {
-			const messageType = IpcHelper.headerValue<string>(request, IpcProtocol.HEADER_MESSAGE_TYPE);
+			const messageType = IpcHelper.headerValue<string>(request, IpcProtocol.HEADER_REQUEST_TYPE);
 			try {
 				if (messageType && messageType in requestHandlers) {
 					requestHandlers[messageType](request);
