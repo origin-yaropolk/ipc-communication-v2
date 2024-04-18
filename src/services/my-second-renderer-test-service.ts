@@ -1,4 +1,4 @@
-import { ExposeService, Service, ServiceLifeTime } from "../services-over-ipc";
+import { ExposeService, Service, ServiceLifeTime } from "../services-over-ipc/main";
 import { MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT } from "./contracts";
 import { IMySecondRendererTestService } from "./interfaces";
 

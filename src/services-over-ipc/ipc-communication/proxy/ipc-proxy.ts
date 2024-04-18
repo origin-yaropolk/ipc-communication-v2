@@ -22,7 +22,7 @@ function isProxyMethod(name: string): boolean {
 }
 
 interface IpcProxyState {
-	communicator: Communicator;
+	communicatorPromise: Promise<Communicator>
 	subscriptionEmitters: Record<string, (...args: unknown[]) => void>;
 }
 
@@ -95,21 +95,24 @@ class IpcPropertyProxy implements ProxyHandler<ProxyFieldContext> {
 			
 
 			(async(): Promise<void> => {
-				await remoteInvoke__(context.proxy.communicator, context.propKey, IpcProtocol.MESSAGE_EVENT_SUBSCRIBE, RequestMode.FireAndForget, []);
+				const communicator = await context.proxy.communicatorPromise;
+				await remoteInvoke__(communicator, context.propKey, IpcProtocol.MESSAGE_EVENT_SUBSCRIBE, RequestMode.FireAndForget, []);
 			})();
 
 			return {
 				unsubscribe: () => {
 					subscription.unsubscribe();
-					return remoteInvoke__(context.proxy.communicator, context.propKey, IpcProtocol.MESSAGE_EVENT_UNSUBSCRIBE, RequestMode.FireAndForget,[]);
+					context.proxy.communicatorPromise.then(communicator => {
+						remoteInvoke__(communicator, context.propKey, IpcProtocol.MESSAGE_EVENT_UNSUBSCRIBE, RequestMode.FireAndForget, [])
+					});
 				},
 			};
 		};
 	}
 
 	async apply(target: ProxyFieldContext, this_: any, args: any[]): Promise<any> {
-		// const instanceId: string = await target.proxy.instanceId();
-		const result = await remoteInvoke(target.proxy.communicator, target.propKey, args);
+		const communicator = await target.proxy.communicatorPromise;
+		const result = await remoteInvoke(communicator, target.propKey, args);
 
 		return result;
 	}
@@ -129,25 +132,27 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 	private readonly properties: Record<string, unknown> = {};
 	readonly subscriptionEmitters: Record<string, (...args: unknown[]) => void> = {};
 
-	static create<T>(communicator: Communicator): Promisify<T> {
-		const proxyHandler = new IpcProxy(communicator);
+	static create<T>(communicatorPromise: Promise<Communicator>): Promisify<T> {
+		const proxyHandler = new IpcProxy(communicatorPromise);
         const proxy = new Proxy({}, proxyHandler) as Promisify<T>;
         return proxy;
 	}
 
-	constructor(readonly communicator: Communicator) {
-		this.communicator.onRequest.subscribe((request) => {
-			if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_EVENT_EMIT)) {
-				const invoke = request.body as InvokeRequest;
-				const args = makeInboundArgs(invoke.args);
-
-				const prop = this.subscriptionEmitters[invoke.method];
-				if(!prop) {
-					return;
+	constructor(readonly communicatorPromise: Promise<Communicator>) {
+		this.communicatorPromise.then(communicator => {
+			communicator.onRequest.subscribe((request) => {
+				if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_EVENT_EMIT)) {
+					const invoke = request.body as InvokeRequest;
+					const args = makeInboundArgs(invoke.args);
+	
+					const prop = this.subscriptionEmitters[invoke.method];
+					if(!prop) {
+						return;
+					}
+	
+					prop.apply(this, args);
 				}
-
-				prop.apply(this, args);
-			}
+			});
 		});
 	}
 
@@ -187,12 +192,15 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 	}
 
 	async apply(target_: unknown, this_: unknown, args: unknown[]): Promise<unknown> {
-		const result = await remoteInvoke(this.communicator, '', args);
+		const communicator = await this.communicatorPromise;
+		const result = await remoteInvoke(communicator, '', args);
 
 		return result;
 	}
 
 	dispose(): void {
-		this.communicator.request(disposeRequest(), RequestMode.FireAndForget).finally(() => this.communicator.dispose());
+		this.communicatorPromise.then(communicator => {
+			communicator.request(disposeRequest(), RequestMode.FireAndForget).finally(() => communicator.dispose());
+		});
 	}
 }

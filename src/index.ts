@@ -2,7 +2,7 @@ import { app, BrowserWindow } from "electron";
 import { MyTestService } from "./services/my-test-service";
 
 import { MY_RENDERER_TEST_SERVICE_CONTRACT, MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT, MY_TEST_SERVICE_CONTRACT } from "./services/contracts";
-import { ServiceLocatorOverIpc } from "./services-over-ipc";
+import { ServiceLocatorOverIpc } from "./services-over-ipc/main";
 import { IMyRendererTestService, IMySecondRendererTestService, IMyTestService } from "./services/interfaces";
 
 
@@ -19,8 +19,8 @@ async function startApp(): Promise<void> {
 
     setTimeout(async () => {
         const serv1 = ServiceLocatorOverIpc.provider().provide<IMyTestService>([MY_TEST_SERVICE_CONTRACT]);
-        const serv2 = await ServiceLocatorOverIpc.provider().provideProxy<IMySecondRendererTestService>([MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT]);
-        const serv3 = await ServiceLocatorOverIpc.provider().provideProxy<IMyRendererTestService>([MY_RENDERER_TEST_SERVICE_CONTRACT]);
+        const serv2 = ServiceLocatorOverIpc.provider().provideProxy<IMySecondRendererTestService>([MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT]);
+        const serv3 = ServiceLocatorOverIpc.provider().provideProxy<IMyRendererTestService>([MY_RENDERER_TEST_SERVICE_CONTRACT]);
 
         console.log(serv1.greet());
         console.log(serv1.add(6, 10));

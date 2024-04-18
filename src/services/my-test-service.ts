@@ -1,5 +1,5 @@
 import { Subject } from "rxjs";
-import { ExposeService, Service, ServiceLifeTime } from "../services-over-ipc";
+import { ExposeService, Service, ServiceLifeTime } from "../services-over-ipc/main";
 import { MY_TEST_SERVICE_CONTRACT } from "./contracts";
 import { IMyTestService } from "./interfaces";
 

@@ -1,4 +1,4 @@
-import { ServiceLocatorOverIpc } from "../../services-over-ipc";
+import { ServiceLocatorOverIpc } from "../../services-over-ipc/renderer";
 import { MySecondRendererTestService } from "../../services/my-second-renderer-test-service";
 
 function startServices(...services: unknown[]): void {}

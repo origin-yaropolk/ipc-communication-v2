@@ -70,18 +70,18 @@ export class ServiceProvider {
 		return instance;
 	}
 
-	async provideProxy<T = unknown>(contracts: string[], ...args: unknown[]): Promise<Promisify<T>> {
+	provideProxy<T = unknown>(contracts: string[]): Promisify<T> {
 		let proxy = this.proxies.get(contracts[0]);
 
         if (!proxy) {
-			const proxyCommunicator = await this.createCommunicators(contracts);
+			const proxyCommunicator = this.createCommunicators(contracts);
             proxy = IpcProxy.create(proxyCommunicator);
 			contracts.forEach(contract => {
 				this.proxies.set(contract, proxy);
 			});
         }
 
-		return Promise.resolve(proxy as Promisify<T>);
+		return proxy as Promisify<T>;
 	}
 
 	private async createCommunicators(contracts: string[]): Promise<Communicator> {
