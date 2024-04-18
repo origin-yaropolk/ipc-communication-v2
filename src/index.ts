@@ -2,7 +2,7 @@ import { app, BrowserWindow } from "electron";
 import { MyTestService } from "./services/my-test-service";
 
 import { MY_RENDERER_TEST_SERVICE_CONTRACT, MY_SECOND_RENDERER_TEST_SERIVCE_CONTRACT, MY_TEST_SERVICE_CONTRACT } from "./services/contracts";
-import { ServiceLocatorOverIpc } from "./services-over-ipc/main";
+import { ServiceLocatorOverIpc } from "./services-over-ipc";
 import { IMyRendererTestService, IMySecondRendererTestService, IMyTestService } from "./services/interfaces";
 
 

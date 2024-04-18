@@ -1,7 +1,7 @@
 import { MessageChannelMain, ipcRenderer, webContents } from "electron";
 
 import { IpcChannels, IpcMessage, IpcProtocol, PortRendererResponse } from "../ipc-communication/ipc-protocol";
-import { IpcProxy, Promisify } from "../ipc-communication/proxy/ipc-proxy";
+import { IpcProxy, Promisify } from "../proxy/ipc-proxy";
 import { ReflectionAspect, reflectLocalInstance } from "./reflection";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
 import { IpcCommunicator } from "../ipc-communication/communicators/ipc-communicator";

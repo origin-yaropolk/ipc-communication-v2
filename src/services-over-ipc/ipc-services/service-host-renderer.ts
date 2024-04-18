@@ -2,22 +2,18 @@ import { RendererCommunicator } from "../ipc-communication/communicators/rendere
 import { IpcHelper } from "../ipc-communication/ipc-core";
 import { IIpcInbox } from "../ipc-communication/ipc-inbox/base-ipc-inbox";
 import { HostDeadNotificationRequest, IpcProtocol, IpcRequest, PortRequest } from "../ipc-communication/ipc-protocol";
+import { AbstractServiceHost } from "./abstract-service-host";
 import { RemoteInstanceManager } from "./remote-instance-manager";
 import { ServiceProvider } from "./service-provider";
 
-export class ServiceHostRenderer {
-	private readonly serviceProvider;
-	private readonly instanceManager;
+export class ServiceHostRenderer extends AbstractServiceHost {
+	private readonly instanceManager: RemoteInstanceManager;
 
     constructor(private inbox: IIpcInbox) {
+		super(new ServiceProvider(inbox))
         this.initInboxing();
 
-		this.serviceProvider = new ServiceProvider(this.inbox);
 		this.instanceManager = new RemoteInstanceManager(this.serviceProvider);
-    }
-
-    get provider(): ServiceProvider {
-        return this.serviceProvider;
     }
 
     private initInboxing(): void {

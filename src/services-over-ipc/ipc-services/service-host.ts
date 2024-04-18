@@ -6,27 +6,21 @@ import { IpcHelper } from "../ipc-communication/ipc-core";
 import { hostDeadNotificationRequest, portRequest } from '../ipc-communication/ipc-messages';
 import { ServiceProvider } from "./service-provider";
 import { MainCommunicator } from "../ipc-communication/communicators/main-communicator";
+import { AbstractServiceHost } from "./abstract-service-host";
 
-export class ServiceHost {
+export class ServiceHost extends AbstractServiceHost {
     private readonly knownHosts: Set<number> = new Set();
     private readonly remoteInstancesRegistry: Map<string, number> = new Map();
-    private readonly serviceProvider;
-    private readonly instanceManager;
+    private readonly instanceManager: RemoteInstanceManager;
 
     constructor(private inbox: IIpcInbox) {
-        this.initInboxing();
-
-        this.serviceProvider = new ServiceProvider(this.inbox, (contract) => {
+        super(new ServiceProvider(inbox, (contract) => {
             return this.remoteInstancesRegistry.get(contract);
-        });
+        }));
 
+        this.initInboxing();
         this.instanceManager = new RemoteInstanceManager(this.serviceProvider);
     }
-
-    get provider(): ServiceProvider {
-        return this.serviceProvider;
-    }
-
     private initInboxing(): void {
         const requestHandlers: { [key: string]: (requet: IpcRequest) => void; } = {
             [IpcProtocol.MESSAGE_REGISTER_INSTANCE]: (request: IpcRequest) => {

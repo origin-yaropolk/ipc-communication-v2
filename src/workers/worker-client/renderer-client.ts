@@ -1,4 +1,4 @@
-import { ServiceLocatorOverIpc } from "../../services-over-ipc/renderer";
+import { ServiceLocatorOverIpc } from "../../services-over-ipc";
 import { MY_RENDERER_TEST_SERVICE_CONTRACT } from "../../services/contracts";
 import { IMyRendererTestService } from "../../services/interfaces";
 

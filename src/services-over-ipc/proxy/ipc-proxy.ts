@@ -1,8 +1,8 @@
-import { IpcHelper } from '../ipc-core';
-import { InvokeRequest, IpcProtocol, makeInboundArgs, makeOutboundArgs } from '../ipc-protocol';
+import { IpcHelper } from '../ipc-communication/ipc-core';
+import { InvokeRequest, IpcProtocol, makeInboundArgs, makeOutboundArgs } from '../ipc-communication/ipc-protocol';
 import { Subject, Unsubscribable } from 'rxjs';
-import { Communicator, RequestMode } from '../communicators/communicator';
-import { disposeRequest } from '../ipc-messages';
+import { Communicator, RequestMode } from '../ipc-communication/communicators/communicator';
+import { disposeRequest } from '../ipc-communication/ipc-messages';
 
 const ignoredMethods = ['then', 'reject'];
 const proxyMethods = ['dispose'];
