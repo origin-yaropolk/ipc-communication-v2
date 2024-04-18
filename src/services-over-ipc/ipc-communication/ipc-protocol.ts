@@ -82,8 +82,8 @@ export enum IpcProtocol {
 }
 
 export enum IpcChannels {
-	REQUEST_CHANNEL = 'tvd-ipc:request',
-	RESPONSE_CHANNEL = 'tvd-ipc:response'
+	REQUEST_CHANNEL = 'ipc-services:request',
+	RESPONSE_CHANNEL = 'ipc-services:response'
 }
 
 /**
