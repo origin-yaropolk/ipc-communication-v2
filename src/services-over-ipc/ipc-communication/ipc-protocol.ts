@@ -35,6 +35,7 @@ export type DisposeRequest = InstanceBaseRequest;
 
 export interface InstanceRequest {
 	contracts: string[];
+	specificHostId?: number;
 }
 
 export interface RegisterInstanceRequest {

@@ -29,7 +29,7 @@
 		"@types/node": "^16.18.16",
 		"@typescript-eslint/eslint-plugin": "^5.55.0",
 		"@typescript-eslint/parser": "^5.55.0",
-		"electron": "^29.1.6",
+		"electron": "^30.0.1",
 		"electron-builder": "^22.14.13",
 		"eslint": "^8.36.0",
 		"typescript": "^5.0.4",

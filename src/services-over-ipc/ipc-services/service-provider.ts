@@ -22,7 +22,8 @@ export class ServiceProvider {
 	private static readonly factories: ServiceFactory[] = [];
 	private static communicator: IpcCommunicator | null;
 	private static factoryRegistractionQueue: (()=>void)[] = [];
-	private readonly proxies: Map<string, unknown> = new Map();
+	private readonly proxies: Map<number, Map<string, unknown>> = new Map();
+	private readonly proxiesQueue: Map<number, Map<string, unknown>> = new Map();
 
 	constructor(private inbox: IIpcInbox, private proxyHostGetter?: (contract: string) => number | undefined) {
 		if (!isMainProcess) {
@@ -70,27 +71,29 @@ export class ServiceProvider {
 		return instance;
 	}
 
-	provideProxy<T = unknown>(contracts: string[]): Promisify<T> {
-		let proxy = this.proxies.get(contracts[0]);
+	provideProxy<T = unknown>(contracts: string[], specificHostId?: number): Promisify<T> {
+		let proxy = this.findCachedProxy(contracts[0], specificHostId);
 
-        if (!proxy) {
-			const proxyCommunicator = this.createCommunicators(contracts);
-            proxy = IpcProxy.create(proxyCommunicator);
-			contracts.forEach(contract => {
-				this.proxies.set(contract, proxy);
-			});
-        }
+		if (proxy) {
+			return proxy as Promisify<T>;
+		}
 
-		return proxy as Promisify<T>;
+		proxy = this.findQueuedProxy(contracts[0], specificHostId);
+
+		if (proxy) {
+			return proxy as Promisify<T>;
+		}
+
+		return this.enqueueProxyRequest(contracts, specificHostId) as Promisify<T>;
 	}
 
-	private async createCommunicators(contracts: string[]): Promise<Communicator> {
+	private async createCommunicators(contracts: string[], specificHostId?: number): Promise<Communicator> {
 		if (isMainProcess) {
 			if (!this.proxyHostGetter) {
 				throw new Error('Proxy host getter not provided');
 			}
 
-			const hostId = this.proxyHostGetter(contracts[0]);
+			const hostId = specificHostId ?? this.proxyHostGetter(contracts[0]);
 
 			if (!hostId) {
 				throw new Error(`Remote instance with contacts [${contracts[0]}] not registerd. Instance can not be created.`);
@@ -108,7 +111,7 @@ export class ServiceProvider {
 			return new MainCommunicator(0, hostId, channel.port2);
 		}
 
-		const response = await this.communicator().send(instanceRequest({contracts}));
+		const response = await this.communicator().send(instanceRequest({contracts, specificHostId}));
 		const port = extractPort(response.body);
 
 		if (!port) {
@@ -130,6 +133,74 @@ export class ServiceProvider {
 		}
 
 		return ServiceProvider.communicator;
+	}
+
+	private findInDoubleMap(map: Map<number, Map<string, unknown>>, contract: string, hostId?: number): unknown | undefined {
+		if (hostId !== undefined) {
+			return map.get(hostId)?.get(contract);
+		}
+
+		for(const bucket of map.values()) {
+			const proxy = bucket.get(contract);
+			if (proxy) {
+				return proxy;
+			}
+		}
+	}
+
+	private findCachedProxy(contract: string, hostId?: number): unknown | undefined {
+		return this.findInDoubleMap(this.proxies, contract, hostId);
+	}
+
+	private findQueuedProxy(contract: string, hostId?: number): unknown | undefined {
+		return this.findInDoubleMap(this.proxiesQueue, contract, hostId);
+	}
+
+	private enqueueProxyRequest(contracts: string[], hostId?: number): unknown {
+		const proxyCommunicator = this.createCommunicators(contracts, hostId);
+		const proxy = IpcProxy.create(proxyCommunicator);
+		const actualHostId = hostId ?? -1;
+
+		let bucket = this.proxiesQueue.get(actualHostId);
+		if (!bucket) {
+			bucket = new Map();
+			this.proxiesQueue.set(actualHostId, bucket);
+		}
+
+		contracts.forEach(contract => {
+			bucket.set(contract, proxy);
+		});
+
+		proxyCommunicator.then(communicator => {
+			if (hostId !== -1 && communicator.remoteId !== actualHostId) {
+				throw new Error(`Expected another host id. Expected - ${actualHostId}, got - ${communicator.remoteId}`);
+			}
+
+			let cacheBucket = this.proxies.get(communicator.remoteId);
+
+			if (!cacheBucket) {
+				cacheBucket = new Map();
+				this.proxies.set(communicator.remoteId, cacheBucket);
+			}
+
+			contracts.forEach(contract => {
+				cacheBucket.set(contract, proxy);
+			});
+		}).catch(err => {
+			console.error(err);
+		}).finally(() => {
+			const queueBucket = this.proxiesQueue.get(actualHostId);
+			
+			contracts.forEach(contract => {
+				queueBucket?.delete(contract);
+			});
+
+			if (queueBucket?.size === 0) {
+				this.proxiesQueue.delete(actualHostId);
+			}
+		});
+
+		return proxy;
 	}
 }
 

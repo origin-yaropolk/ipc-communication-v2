@@ -10,17 +10,18 @@ import { AbstractServiceHost } from "./abstract-service-host";
 
 export class ServiceHost extends AbstractServiceHost {
     private readonly knownHosts: Set<number> = new Set();
-    private readonly remoteInstancesRegistry: Map<string, number> = new Map();
+    private readonly remoteInstancesRegistry: Map<string, Set<number>> = new Map();
     private readonly instanceManager: RemoteInstanceManager;
 
     constructor(private inbox: IIpcInbox) {
         super(new ServiceProvider(inbox, (contract) => {
-            return this.remoteInstancesRegistry.get(contract);
+            return this.remoteInstancesRegistry.get(contract)?.values().next().value;
         }));
 
         this.initInboxing();
         this.instanceManager = new RemoteInstanceManager(this.serviceProvider);
     }
+
     private initInboxing(): void {
         const requestHandlers: { [key: string]: (requet: IpcRequest) => void; } = {
             [IpcProtocol.MESSAGE_REGISTER_INSTANCE]: (request: IpcRequest) => {
@@ -40,7 +41,7 @@ export class ServiceHost extends AbstractServiceHost {
                 this.rememberHost(remoteHost);
 
                 data.contracts.forEach(contract => {
-                    this.remoteInstancesRegistry.set(contract, hostId);
+                    this.registerHostForContract(contract, hostId);
                 });
 
                 IpcHelper.response(request, 'Successful registered');
@@ -48,9 +49,10 @@ export class ServiceHost extends AbstractServiceHost {
 
             [IpcProtocol.MESSAGE_UNREGISTER_INSTANCE]: (request: IpcRequest) => {
                 const data = request.body as UnregisterInstanceRequest
+                const hostId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID) ?? 0;
 
                 data.contracts.forEach(contract => {
-                    this.remoteInstancesRegistry.delete(contract);
+                    this.unregisterForContract(contract, hostId);
                 });
 
                 IpcHelper.response(request, 'Successful unregistered');
@@ -59,6 +61,7 @@ export class ServiceHost extends AbstractServiceHost {
             [IpcProtocol.MESSAGE_GET_INSTANCE]: (request: IpcRequest) => {
                 const data = request.body as InstanceRequest
                 const [contract] = data.contracts;
+                const specificHostId = data.specificHostId;
                 const requestingHost = webContents.fromId(IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID) ?? 0);
 
                 if (!requestingHost) {
@@ -67,21 +70,23 @@ export class ServiceHost extends AbstractServiceHost {
 
                 this.rememberHost(requestingHost);
 
-                const localInstance = this.instanceManager.tryGetInstance(data.contracts);
-                if (localInstance) {
-                    const channel = new MessageChannelMain();
+                if (specificHostId === undefined) {
+                    const localInstance = this.instanceManager.tryGetInstance(data.contracts);
+                    if (localInstance) {
+                        const channel = new MessageChannelMain();
 
-                    localInstance.addCommunicator(new MainCommunicator(0, requestingHost.id, channel.port1,));
-                    return IpcHelper.response(request, {port: channel.port2});
+                        localInstance.addCommunicator(new MainCommunicator(0, requestingHost.id, channel.port1,));
+                        return IpcHelper.response(request, {port: channel.port2});
+                    }
                 }
 
-                const remoteHostId = this.remoteInstancesRegistry.get(contract);
+                const remoteHosts = this.remoteInstancesRegistry.get(contract);
 
-                if (!remoteHostId) {
+                if (!remoteHosts || specificHostId && !remoteHosts.has(specificHostId)) {
                     return IpcHelper.responseFailure(request, `Service with contracts [${contract}] not registered, and remoting not configured. Instance can not be created.`);
                 }
                 
-                const targetHost = webContents.fromId(remoteHostId);
+                const targetHost = webContents.fromId(remoteHosts.values().next().value);
 
                 if (!targetHost) {
                     return IpcHelper.responseFailure(request, `ServiceHost for contracts [${contract}] does not exists anymore`);
@@ -124,6 +129,29 @@ export class ServiceHost extends AbstractServiceHost {
         this.setupHostAliveWatchdog(host);
     }
 
+    private registerHostForContract(contract: string, id: number): void {
+        let hosts = this.remoteInstancesRegistry.get(contract);
+
+        if (!hosts) {
+            hosts = new Set();
+            this.remoteInstancesRegistry.set(contract, hosts);
+        }
+
+        hosts.add(id);
+    }
+
+    private unregisterForContract(contract: string, id: number): void {
+        let hosts = this.remoteInstancesRegistry.get(contract);
+
+        if (hosts) {
+            hosts.delete(id);
+        }
+
+        if (hosts?.size === 0) {
+            this.remoteInstancesRegistry.delete(contract);
+        }
+    }
+
     private setupHostAliveWatchdog(host: WebContents): void {
         host.once('destroyed', () => {
             this.removeRemoteHost(host.id);
@@ -134,8 +162,11 @@ export class ServiceHost extends AbstractServiceHost {
     private removeRemoteHost(remoteHostId: number): void {
         const contractsForDelete: string[] = [];
 
+
         this.remoteInstancesRegistry.forEach((value, key) => {
-            if (value === remoteHostId) {
+            value.delete(remoteHostId);
+
+            if (value.size === 0) {
                 contractsForDelete.push(key);
             }
         });
