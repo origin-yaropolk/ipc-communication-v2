@@ -1,7 +1,7 @@
 import { Event, ipcMain, IpcMainEvent } from 'electron';
 
-import { BaseIpcInbox } from './base-ipc-inbox';
 import { IpcChannels, IpcMessage, PortResponse } from '../ipc-protocol';
+import { BaseIpcInbox } from './base-ipc-inbox';
 
 export class MainIpcInbox extends BaseIpcInbox {
 	onMessage(channel: string, handler: (ev: Event, msg: IpcMessage) => void): void {

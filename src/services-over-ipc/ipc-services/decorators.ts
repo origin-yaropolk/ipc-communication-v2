@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 
-
 import { ServiceFactory, ServiceProvider } from './service-provider';
 
 export const SERVICE_CONTRACTS_METAKEY = Symbol('ServiceContracts');
+// eslint-disable-next-line @typescript-eslint/ban-types
 export type GenericConstructor<T = {}> = new (...args: any[]) => T;
 
 export enum ServiceLifeTime {
@@ -20,7 +20,7 @@ export function Service(...contracts: string[]) {
 export function ExposeService(lifetime: ServiceLifeTime) {
 	return (constructor: GenericConstructor): void => {
 		const contracts = Reflect.getMetadata(SERVICE_CONTRACTS_METAKEY, constructor) as string[] | undefined;
-		
+
 		const hasAllContracts = (requestedContracts: string[]): boolean => {
 			if (!contracts) {
 				console.error(`Service can not be exposed, because Service meta data not provided:[${ constructor.name }]`);

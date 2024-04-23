@@ -1,7 +1,7 @@
-import { ServiceProvider } from './service-provider';
 import { RemoteInvokableInstance } from './remote-invokable-instance';
+import { ServiceProvider } from './service-provider';
 
-export let ignoreIpcServiceProviderRequest__ = false;
+export const ignoreIpcServiceProviderRequest__ = false;
 
 export class RemoteInstanceManager {
 	private instances: RemoteInvokableInstance[] = [];

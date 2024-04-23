@@ -1,10 +1,6 @@
-import { MessagePortMain, ipcMain } from 'electron';
-
+import { ipcMain, MessagePortMain } from 'electron';
 
 const isMainProcess = typeof ipcMain !== 'undefined';
-
-export interface InstanceBaseRequest {
-}
 
 export interface IpcMessage {
 	headers: { [key: string]: any; };
@@ -19,19 +15,17 @@ export interface IpcRequest extends IpcMessage {
 }
 
 export interface PortResponse {
-	port: MessagePortMain
+	port: MessagePortMain;
 }
 
 export interface PortRendererResponse {
-	port: MessagePort
+	port: MessagePort;
 }
 
-export interface InvokeRequest extends InstanceBaseRequest {
+export interface InvokeRequest {
 	method: string;
 	args: unknown[];
 }
-
-export type DisposeRequest = InstanceBaseRequest;
 
 export interface InstanceRequest {
 	contracts: string[];
@@ -39,7 +33,7 @@ export interface InstanceRequest {
 }
 
 export interface RegisterInstanceRequest {
-    contracts: string[];
+	contracts: string[];
 }
 
 export type UnregisterInstanceRequest = RegisterInstanceRequest;
@@ -52,8 +46,6 @@ export interface PortRequest extends RegisterInstanceRequest {
 export interface HostDeadNotificationRequest {
 	id: number;
 }
-
-export type GetInstanceResponse = InstanceBaseRequest;
 
 export interface DispatchedInstance {
 	dispatchedRemoteInstanceId: string;
@@ -84,7 +76,7 @@ export enum IpcProtocol {
 
 export enum IpcChannels {
 	REQUEST_CHANNEL = 'ipc-services:request',
-	RESPONSE_CHANNEL = 'ipc-services:response'
+	RESPONSE_CHANNEL = 'ipc-services:response',
 }
 
 /**
@@ -125,13 +117,13 @@ export function isDispatchedCallback(value: unknown): value is DispatchedCallbac
  * Any function or service instance value will be transformed into remote-instance-info, all other values will no be modified
  */
 export function makeOutboundValue(value: unknown): unknown {
-	//if (typeof value === 'function') {
+	// if (typeof value === 'function') {
 	//	const callbackInstance: DispatchedCallback = {
 	//		callbackId: serviceHost().registerRemoteInstance(value),
 	//	};
 //
 	//	return callbackInstance;
-	//}
+	// }
 
 	if (!value || typeof value !== 'object') {
 		return value;
@@ -146,7 +138,7 @@ export function makeOutboundValue(value: unknown): unknown {
 	}
 
 	const dispInstance: DispatchedInstance = {
-		dispatchedRemoteInstanceId: '1'//serviceHost().registerRemoteInstance(value),
+		dispatchedRemoteInstanceId: '1', // serviceHost().registerRemoteInstance(value),
 	};
 
 	return dispInstance;

@@ -1,11 +1,12 @@
 import { Event, IpcRendererEvent } from 'electron';
 import { Observable, Subject } from 'rxjs';
+
 import { IpcChannels, IpcMessage, IpcProtocol, IpcRequest } from '../ipc-protocol';
 
 interface WithSenderId extends Event {
 	sender: {
 		id: number;
-	}
+	};
 }
 
 interface WithPort extends Event {
@@ -13,11 +14,11 @@ interface WithPort extends Event {
 }
 
 function eventHasSenderId(ev: Event): ev is WithSenderId {
-	return (ev as unknown as WithSenderId).sender.id != undefined;
+	return (ev as unknown as WithSenderId).sender.id !== undefined;
 }
 
 function eventHasPort(ev: Event): ev is WithPort {
-	return (ev as unknown as WithPort).ports != undefined;
+	return (ev as unknown as WithPort).ports !== undefined;
 }
 
 export interface IIpcInbox {
@@ -43,17 +44,17 @@ export abstract class BaseIpcInbox implements IIpcInbox {
 			const request: IpcRequest = {
 				...msg,
 				responseChannel,
-				port: eventHasPort(ev) ? ev.ports[0] : undefined
+				port: eventHasPort(ev) ? ev.ports[0] : undefined,
 			};
 
 			this.onRequestSubject.next(request);
 		});
 
 		this.onMessage(IpcChannels.RESPONSE_CHANNEL, (ev: Event, msg: IpcMessage) => {
-			const [port] = (ev as IpcRendererEvent).ports
+			const [port] = (ev as IpcRendererEvent).ports;
 
 			if (port) {
-				msg.body = { port: port };
+				msg.body = { port };
 			}
 
 			this.onResponseSubject.next(msg);

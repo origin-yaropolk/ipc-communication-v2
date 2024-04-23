@@ -1,5 +1,5 @@
-
 import { ipcMain } from 'electron';
+
 import { IpcMessage, IpcRequest } from './ipc-protocol';
 
 export const isMainProcess = typeof ipcMain !== 'undefined';
@@ -85,4 +85,3 @@ export class IpcHelper {
 		return message.body as T;
 	}
 }
-

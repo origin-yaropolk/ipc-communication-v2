@@ -1,4 +1,4 @@
-import { GenericConstructor, SERVICE_CONTRACTS_METAKEY } from "./decorators";
+import { GenericConstructor, SERVICE_CONTRACTS_METAKEY } from './decorators';
 
 export interface ServiceMethodDescription {
 	name: string;
@@ -58,7 +58,7 @@ function* allValuableProperties(instance: unknown): Iterable<{ key: string; valu
 					yield { key, value };
 				}
 				catch (error: unknown) {
-					console.error(`Fail to get property [${ key }]: ${ (error) }`);
+					console.error(`Fail to get property [${ key }]: ${ error }`);
 				}
 			}
 

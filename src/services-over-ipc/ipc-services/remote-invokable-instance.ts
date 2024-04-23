@@ -1,9 +1,11 @@
-import { ReflectionAspect, reflectLocalInstance } from './reflection';
-import { IpcHelper } from '../ipc-communication/ipc-core';
-import { InvokeRequest, IpcProtocol, IpcRequest, makeInboundArgs, makeOutboundValue } from '../ipc-communication/ipc-protocol';
 import { Subscribable, Unsubscribable } from 'rxjs';
+
+import { ignorePromise } from '../../utils';
+import { Communicator, getUID, RequestMode } from '../ipc-communication/communicators/communicator';
+import { IpcHelper } from '../ipc-communication/ipc-core';
 import { emitEventRequest } from '../ipc-communication/ipc-messages';
-import { Communicator, RequestMode, getUID } from '../ipc-communication/communicators/communicator';
+import { InvokeRequest, IpcProtocol, IpcRequest, makeInboundArgs, makeOutboundValue } from '../ipc-communication/ipc-protocol';
+import { ReflectionAspect, reflectLocalInstance } from './reflection';
 
 const instanceUidLength = 8;
 
@@ -25,18 +27,18 @@ export class RemoteInvokableInstance {
 		this.instance = instance;
 	}
 
-    addCommunicator(communicator: Communicator): void {
-        this.communicatorsByRemoteId.set(communicator.remoteId, communicator);
+	addCommunicator(communicator: Communicator): void {
+		this.communicatorsByRemoteId.set(communicator.remoteId, communicator);
 
 		communicator.onClosed.subscribe(() => {
 			communicator.dispose();
 			// todo: remove from array
 		});
-		
+
 		communicator.onRequest.subscribe((request) => {
 			this.handleRequest(request);
 		});
-    }
+	}
 
 	onHostDead(deadHostId: number): void {
 		const idsForDelete: string[] = [];
@@ -55,7 +57,7 @@ export class RemoteInvokableInstance {
 		this.communicatorsByRemoteId.delete(deadHostId);
 	}
 
-    private handleRequest(request: IpcRequest): void {
+	private handleRequest(request: IpcRequest): void {
 		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_INVOKE)) {
 			return this.handleInvokeRequest(request);
 		}
@@ -71,9 +73,9 @@ export class RemoteInvokableInstance {
 		if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_DISPOSE)) {
 			return this.handleDisposeRequest(request);
 		}
-    }
+	}
 
-	private handleInvokeRequest(request: IpcRequest) {
+	private handleInvokeRequest(request: IpcRequest): void {
 		const invoke = request.body as InvokeRequest;
 		const args = makeInboundArgs(invoke.args);
 		const method = this.instance[invoke.method];
@@ -83,11 +85,11 @@ export class RemoteInvokableInstance {
 			return;
 		}
 
-		const result = (method as (...values: unknown[]) => unknown).apply( this.instance, args);
+		const result = (method as (...values: unknown[]) => unknown).apply(this.instance, args);
 		IpcHelper.response(request, makeOutboundValue(result));
 	}
 
-	private handleSubscribeRequest(request: IpcRequest) {
+	private handleSubscribeRequest(request: IpcRequest): void {
 		const invoke = request.body as InvokeRequest;
 		const subscribable = Reflect.get(this.instance, invoke.method) as Subscribable<unknown>;
 		if (!subscribable) {
@@ -95,13 +97,17 @@ export class RemoteInvokableInstance {
 		}
 
 		const hostId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID) ?? 0;
-		const id = `${hostId}-${invoke.method}`;
+		const id = `${ hostId }-${ invoke.method }`;
 		const subscription = subscribable.subscribe({
 			next: (value: unknown) => {
-				this.communicatorsByRemoteId.get(hostId)?.request(emitEventRequest({
+				const requestPromise = this.communicatorsByRemoteId.get(hostId)?.request(emitEventRequest({
 					method: invoke.method,
-					args: [value]
+					args: [value],
 				}), RequestMode.FireAndForget);
+
+				if (requestPromise) {
+					ignorePromise(requestPromise);
+				}
 			},
 
 			error: (error: unknown) => {
@@ -118,10 +124,10 @@ export class RemoteInvokableInstance {
 		IpcHelper.response(request, {});
 	}
 
-	private handleUnsubscribeRequest(request: IpcRequest) {
+	private handleUnsubscribeRequest(request: IpcRequest): void {
 		const invoke = request.body as InvokeRequest;
 		const remoteId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID);
-		const id = `${remoteId ?? 0}-${invoke.method}`;
+		const id = `${ remoteId ?? 0 }-${ invoke.method }`;
 		const sub = this.eventSubscriptions.get(id);
 		sub?.unsubscribe();
 		this.eventSubscriptions.delete(id);
@@ -129,7 +135,7 @@ export class RemoteInvokableInstance {
 		IpcHelper.response(request, {});
 	}
 
-	private handleDisposeRequest(request: IpcRequest) {
+	private handleDisposeRequest(request: IpcRequest): void {
 		const remoteId = IpcHelper.headerValue<number>(request, IpcProtocol.HEADER_HOST_ID) ?? 0;
 
 		this.onHostDead(remoteId);

@@ -1,8 +1,9 @@
 import { Subscription } from 'rxjs';
+
 import { IpcHelper } from '../ipc-core';
-import { IpcMessage } from '../ipc-protocol';
 import { IIpcInbox } from '../ipc-inbox/base-ipc-inbox';
-import { CommunicatorProtocol, Invocation, getUID } from './communicator';
+import { IpcMessage } from '../ipc-protocol';
+import { CommunicatorProtocol, getUID, Invocation } from './communicator';
 
 export class IpcCommunicator {
 	private readonly id = getUID();
@@ -21,9 +22,9 @@ export class IpcCommunicator {
 			if (!id) {
 				return;
 			}
-	
+
 			const invocation = this.invocations.get(id);
-	
+
 			if (invocation) {
 				this.invocations.delete(id);
 				clearTimeout(invocation.invocationTimeout as number);

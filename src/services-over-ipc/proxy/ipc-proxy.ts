@@ -1,8 +1,11 @@
-import { IpcHelper } from '../ipc-communication/ipc-core';
-import { InvokeRequest, IpcProtocol, makeInboundArgs, makeOutboundArgs } from '../ipc-communication/ipc-protocol';
 import { Subject, Unsubscribable } from 'rxjs';
+
+import { getMessageOfError } from '../../tvd-runtime/core';
+import { ignorePromise } from '../../utils/async';
 import { Communicator, RequestMode } from '../ipc-communication/communicators/communicator';
+import { IpcHelper } from '../ipc-communication/ipc-core';
 import { disposeRequest } from '../ipc-communication/ipc-messages';
+import { InvokeRequest, IpcProtocol, makeInboundArgs, makeOutboundArgs } from '../ipc-communication/ipc-protocol';
 
 const ignoredMethods = ['then', 'reject'];
 const proxyMethods = ['dispose'];
@@ -22,7 +25,7 @@ function isProxyMethod(name: string): boolean {
 }
 
 interface IpcProxyState {
-	communicatorPromise: Promise<Communicator>
+	communicatorPromise: Promise<Communicator>;
 	subscriptionEmitters: Record<string, (...args: unknown[]) => void>;
 }
 
@@ -92,19 +95,17 @@ class IpcPropertyProxy implements ProxyHandler<ProxyFieldContext> {
 				};
 			}
 
-			
-
-			(async(): Promise<void> => {
+			ignorePromise((async(): Promise<void> => {
 				const communicator = await context.proxy.communicatorPromise;
 				await remoteInvoke__(communicator, context.propKey, IpcProtocol.MESSAGE_EVENT_SUBSCRIBE, RequestMode.FireAndForget, []);
-			})();
+			})());
 
 			return {
 				unsubscribe: () => {
 					subscription.unsubscribe();
-					context.proxy.communicatorPromise.then(communicator => {
-						remoteInvoke__(communicator, context.propKey, IpcProtocol.MESSAGE_EVENT_UNSUBSCRIBE, RequestMode.FireAndForget, [])
-					});
+					ignorePromise(context.proxy.communicatorPromise.then(communicator => {
+						ignorePromise(remoteInvoke__(communicator, context.propKey, IpcProtocol.MESSAGE_EVENT_UNSUBSCRIBE, RequestMode.FireAndForget, []));
+					}));
 				},
 			};
 		};
@@ -134,8 +135,8 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 
 	static create<T>(communicatorPromise: Promise<Communicator>): Promisify<T> {
 		const proxyHandler = new IpcProxy(communicatorPromise);
-        const proxy = new Proxy({}, proxyHandler) as Promisify<T>;
-        return proxy;
+		const proxy = new Proxy({}, proxyHandler) as Promisify<T>;
+		return proxy;
 	}
 
 	constructor(readonly communicatorPromise: Promise<Communicator>) {
@@ -144,15 +145,18 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 				if (IpcHelper.hasHeader(request, IpcProtocol.HEADER_REQUEST_TYPE, IpcProtocol.MESSAGE_EVENT_EMIT)) {
 					const invoke = request.body as InvokeRequest;
 					const args = makeInboundArgs(invoke.args);
-	
+
 					const prop = this.subscriptionEmitters[invoke.method];
-					if(!prop) {
+					if (!prop) {
 						return;
 					}
-	
+
 					prop.apply(this, args);
 				}
 			});
+		}).catch((error: unknown) => {
+			const message = getMessageOfError(error);
+			console.warn(`Error while awaiting communicator instance on constructor:${ message }`);
 		});
 	}
 
@@ -201,6 +205,9 @@ export class IpcProxy implements ProxyHandler<Record<string, unknown>>, IpcProxy
 	dispose(): void {
 		this.communicatorPromise.then(communicator => {
 			communicator.request(disposeRequest(), RequestMode.FireAndForget).finally(() => communicator.dispose());
+		}).catch((error: unknown) => {
+			const message = getMessageOfError(error);
+			console.warn(`Error while awaiting communicator instance on .dispose:${ message }`);
 		});
 	}
 }

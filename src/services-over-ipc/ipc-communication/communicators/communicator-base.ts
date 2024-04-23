@@ -1,23 +1,24 @@
-import { MessagePortMain } from "electron";
-import { Communicator, CommunicatorProtocol, Invocation, MessageType, RequestMode } from "./communicator";
-import { IpcMessage, IpcProtocol, IpcRequest, IpcResponse } from "../ipc-protocol";
-import { Subject } from "rxjs";
-import { IpcHelper } from "../ipc-core";
+import { MessagePortMain } from 'electron';
+import { Subject } from 'rxjs';
+
+import { IpcHelper } from '../ipc-core';
+import { IpcMessage, IpcProtocol, IpcRequest, IpcResponse } from '../ipc-protocol';
+import { Communicator, CommunicatorProtocol, Invocation, MessageType, RequestMode } from './communicator';
 
 export class CommunicatorBase implements Communicator {
-    protected readonly onRequestSubject = new Subject<IpcRequest>();
+	protected readonly onRequestSubject = new Subject<IpcRequest>();
 	readonly onRequest = this.onRequestSubject.asObservable();
 
-    protected readonly onClosedSubject = new Subject<void>();
+	protected readonly onClosedSubject = new Subject<void>();
 	readonly onClosed = this.onClosedSubject.asObservable();
 
-    private idGenerator = 1;
-    private readonly invocations: Map<number, Invocation> = new Map();
+	private idGenerator = 1;
+	private readonly invocations: Map<number, Invocation> = new Map();
 
-    constructor(readonly id: number, readonly remoteId: number, protected readonly port: MessagePort | MessagePortMain) {}
+	constructor(readonly id: number, readonly remoteId: number, protected readonly port: MessagePort | MessagePortMain) {}
 
-    public request(msg: IpcMessage, mode: RequestMode = RequestMode.FireAndForget): Promise<IpcResponse> {
-        return new Promise<IpcMessage>((resolve, reject) => {
+	public request(msg: IpcMessage, mode: RequestMode = RequestMode.FireAndForget): Promise<IpcResponse> {
+		return new Promise<IpcMessage>((resolve, reject) => {
 			const msgId = ++this.idGenerator;
 			msg.headers[CommunicatorProtocol.HEADER_INVOKE_ID] = msgId;
 			msg.headers[IpcProtocol.HEADER_HOST_ID] = this.id;
@@ -48,9 +49,9 @@ export class CommunicatorBase implements Communicator {
 
 			this.port.postMessage(msg);
 		});
-    }
+	}
 
-    protected responseHandler(msg: IpcResponse) {
+	protected responseHandler(msg: IpcResponse): void {
 		const invokeId = this.getMyInvokeId(msg);
 		const invocation = this.invocations.get(invokeId);
 
@@ -61,7 +62,7 @@ export class CommunicatorBase implements Communicator {
 		}
 	}
 
-    private getMyInvokeId(msg: IpcMessage): number {
+	private getMyInvokeId(msg: IpcMessage): number {
 		return IpcHelper.headerValue<number>(msg, CommunicatorProtocol.HEADER_INVOKE_ID) ?? 0;
 	}
 
@@ -71,11 +72,12 @@ export class CommunicatorBase implements Communicator {
 		if (messageType === MessageType.Request) {
 			const responseChannel = IpcHelper.hasHeader(message, CommunicatorProtocol.HEADER_REQUEST_MODE, RequestMode.WaitForResponse)
 				? this.makeResponseChannel()
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				: (response: IpcResponse) => {};
 
 			const request: IpcRequest = {
 				...message,
-				responseChannel
+				responseChannel,
 			};
 
 			this.onRequestSubject.next(request);
@@ -84,24 +86,24 @@ export class CommunicatorBase implements Communicator {
 		if (messageType === MessageType.Response) {
 			this.responseHandler(message);
 		}
-    }
+	}
 
-    protected closeHandler(): void {
-        this.onClosedSubject.next();
-    }
+	protected closeHandler(): void {
+		this.onClosedSubject.next();
+	}
 
 	protected makeResponseChannel(): (response: IpcResponse) => void {
 		const port = this.port;
-        return function(response: IpcResponse): void {
+		return function(response: IpcResponse): void {
 			response.headers[CommunicatorProtocol.HEADER_MESSAGE_TYPE] = MessageType.Response;
-            port.postMessage(response);
-        };
-    }
+			port.postMessage(response);
+		};
+	}
 
-    public dispose(): void {
+	public dispose(): void {
 		this.invocations.clear();
 		this.onRequestSubject.complete();
 		this.onClosedSubject.complete();
-        this.port.close();
-    }
+		this.port.close();
+	}
 }

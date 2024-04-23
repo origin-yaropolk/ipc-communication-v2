@@ -1,40 +1,40 @@
-import { HostDeadNotificationRequest, InstanceRequest, InvokeRequest, IpcMessage, IpcProtocol, PortRequest, RegisterInstanceRequest } from "./ipc-protocol";
+import { HostDeadNotificationRequest, InstanceRequest, InvokeRequest, IpcMessage, IpcProtocol, PortRequest, RegisterInstanceRequest } from './ipc-protocol';
 
 function baseRequest(body: unknown, requestType: IpcProtocol): IpcMessage {
-    const message: IpcMessage = {
-        headers: {
-            [IpcProtocol.HEADER_REQUEST_TYPE]: requestType,
-        },
-        body
-    };
+	const message: IpcMessage = {
+		headers: {
+			[IpcProtocol.HEADER_REQUEST_TYPE]: requestType,
+		},
+		body,
+	};
 
-    return message;
+	return message;
 }
 
 export function registerInstanceRequest(requestData: RegisterInstanceRequest): IpcMessage {
-    return baseRequest(requestData, IpcProtocol.MESSAGE_REGISTER_INSTANCE);
+	return baseRequest(requestData, IpcProtocol.MESSAGE_REGISTER_INSTANCE);
 }
 
-export function invokeRequest(requestData: InvokeRequest) {
-    return baseRequest(requestData, IpcProtocol.MESSAGE_INVOKE);
+export function invokeRequest(requestData: InvokeRequest): IpcMessage {
+	return baseRequest(requestData, IpcProtocol.MESSAGE_INVOKE);
 }
 
 export function portRequest(requestData: PortRequest): IpcMessage {
-    return baseRequest(requestData, IpcProtocol.MESSAGE_PORT_REQUEST);
+	return baseRequest(requestData, IpcProtocol.MESSAGE_PORT_REQUEST);
 }
 
 export function instanceRequest(requestData: InstanceRequest): IpcMessage {
-    return baseRequest(requestData, IpcProtocol.MESSAGE_GET_INSTANCE);
+	return baseRequest(requestData, IpcProtocol.MESSAGE_GET_INSTANCE);
 }
 
 export function emitEventRequest(requestData: InvokeRequest): IpcMessage {
-    return baseRequest(requestData, IpcProtocol.MESSAGE_EVENT_EMIT);
+	return baseRequest(requestData, IpcProtocol.MESSAGE_EVENT_EMIT);
 }
 
 export function disposeRequest(): IpcMessage {
-    return baseRequest({}, IpcProtocol.MESSAGE_DISPOSE);
+	return baseRequest({}, IpcProtocol.MESSAGE_DISPOSE);
 }
 
 export function hostDeadNotificationRequest(requestData: HostDeadNotificationRequest): IpcMessage {
-    return baseRequest(requestData, IpcProtocol.MESSAGE_HOST_DEAD_NOTIFICATION);
+	return baseRequest(requestData, IpcProtocol.MESSAGE_HOST_DEAD_NOTIFICATION);
 }
